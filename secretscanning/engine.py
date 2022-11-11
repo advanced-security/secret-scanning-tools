@@ -33,6 +33,7 @@ def getSecretScanningResults(
     """
     - https://docs.github.com/en/enterprise-cloud@latest/rest/secret-scanning#list-secret-scanning-alerts-for-a-repository
     """
+    logging.info(f"Getting secret scanning results for: {owner}/{repo}")
     secrets: List[SecretScanningAlert] = []
     params = {"state": "open"}
     if secret_type:
