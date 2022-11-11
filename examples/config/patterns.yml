@@ -1,0 +1,17 @@
+
+name: Configuration Secrets
+
+patterns:
+  - name: Django Secret Key
+    type: django_secret_key
+    regex:
+      version: 0.1
+      pattern: |
+        [^\s"'(${{)][a-zA-Z0-9!.,$%&*+?^_`{|}()~-]*
+      start: |
+        [^0-9A-Za-z](SECRET_KEY)(\s+|)=(\s+|)("|')
+      end: |
+        \z|[^a-zA-Z0-9\s!.,$%&*+?^_`{|}()~-]|'|"
+
+    comments:
+      - "_If the secret is at the start of the file, its not picked up_"
