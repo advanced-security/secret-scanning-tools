@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyyaml = "*"
+requests = "*"
+ratelimit = "*"
+jinja2 = "*"
+
+[dev-packages]
+black = "*"
+
+[requires]
+python_version = "3.9"
+
+[scripts]
+main = "python -m secretscanning"
+validate = "python -m secretscanning --validate"
+snapshot = "python -m secretscanning --snapshot"
+markdown = "python -m secretscanning --markdown"

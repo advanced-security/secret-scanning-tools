@@ -1,0 +1,50 @@
+name: 'secret-scanning-custom-action'
+description: 'Testing Suite for GitHub Secret Scanning Custom Patterns'
+
+inputs:
+  repository:
+    description: Repository owner and repo name
+    default: ${{ github.repository }}
+
+  token:
+    description: GitHub Personal Access Token
+    default: ${{ github.token }}
+
+  mode:
+    description: Secret Scanning Test Suite Mode
+    default: validate
+
+  template-main:
+    description: Main README Template
+  
+  template-patterns:
+    description: Main Pattern Template
+
+  argvs:
+    description: 'Additional Arguments'
+
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - shell: bash
+      run: |
+        echo "::group::Installing Dependencies"
+        pushd ${{ github.action_path }}
+        python3 -m pip install pipenv && python3 -m pipenv install --system
+        popd
+        echo "::endgroup::"
+    - shell: bash
+      run: |
+        PYTHONPATH=${{ github.action_path }} && export PYTHONPATH=${{ github.action_path }}
+        python3 -m secretscanning \
+          --${{ inputs.mode }} \
+          --github-token "${{ inputs.token }}" \
+          --github-repository "${{ inputs.repository }}" \
+          --templates-main "${{ inputs.template-main }}" \
+          --templates-patterns "${{ inputs.template-patterns }}" \
+          ${{ inputs.argvs }}
