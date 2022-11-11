@@ -20,8 +20,13 @@ parser = argparse.ArgumentParser(description="Validate a directory of files.")
 parser.add_argument("--debug", action="store_true", help="Print debug messages")
 parser.add_argument("-p", "--path", default="./", help="Directory to scan")
 parser.add_argument("--cwd", default="./", help="Current Working Directory")
+
+parser_modes = parser.add_argument_group("GitHub")
 parser.add_argument(
-    "--token", default=os.environ.get("GITHUB_TOKEN"), help="GitHub token to use"
+    "--github-repository", default=os.environ.get("GITHUB_REPOSITORY"), help="GitHub Repository"
+)
+parser.add_argument(
+    "--github-token", default=os.environ.get("GITHUB_TOKEN"), help="GitHub token to use"
 )
 
 parser_modes = parser.add_argument_group("modes")
@@ -54,6 +59,8 @@ if __name__ == "__main__":
     # If a file is provided, point to the directory
     if os.path.isfile(path):
         path = os.path.dirname(path)
+
+    owner, repo = arguments.github_repository.split("/")
 
     configs: Dict[str, PatternsConfig] = loadPatternFiles(path)
     # Sort by name
@@ -88,9 +95,9 @@ if __name__ == "__main__":
             snapshot_path = f"{snapshot_dir}/{pattern.type}.csv"
 
             results = getSecretScanningResults(
-                "advanced-security",
-                "secret-scanning-custom-patterns",
-                arguments.token,
+                owner,
+                repo,
+                arguments.github_token,
                 pattern.type,
             )
             logging.info(f"Found secrets :: {len(results)}")
