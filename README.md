@@ -5,14 +5,14 @@ Testing Suite for GitHub Secret Scanning Custom Patterns
 
 ```yaml
 - name: Secret Scanning Test Suite
-  uses: advanced-security/secret-scanning-custom-action@main
+  uses: advanced-security/secret-scanning-tools@main
 ```
 
 **Advanced Configurations:**
 
 ```yaml
 - name: Secret Scanning Test Suite
-  uses: advanced-security/secret-scanning-custom-action@main
+  uses: advanced-security/secret-scanning-tools@main
   with:
     # Modes to run
     # > 'validate' (default), 'all', 'snapshot', 'markdown'
@@ -30,7 +30,7 @@ Testing Suite for GitHub Secret Scanning Custom Patterns
     application_private_key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
 
 - name: Secret Scanning Test Suite
-  uses: advanced-security/secret-scanning-custom-action@main
+  uses: advanced-security/secret-scanning-tools@main
   with:
     token: ${{ steps.get_workflow_token.outputs.token }}
 ```
