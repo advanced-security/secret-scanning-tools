@@ -1,4 +1,5 @@
-# secret-scanning-custom-action
+# secret-scanning-tools
+
 Testing Suite for GitHub Secret Scanning Custom Patterns
 
 ## Usage
