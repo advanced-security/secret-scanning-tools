@@ -4,7 +4,7 @@ Test GitHub Advanced Security Secret Scanning Custom Patterns
 
 Copyright (C) GitHub 2022
 
-Author: GitHub Advanced Security
+Author: GitHub Advanced Security Field Services
 """
 
 import os
@@ -24,6 +24,8 @@ from random import randbytes, choices
 from string import printable
 from itertools import zip_longest
 from tqdm import tqdm
+from git import Repo
+from git.exc import GitCommandError
 
 
 LOG = logging.getLogger(__name__)
@@ -498,6 +500,58 @@ def random_test_patterns(tests_path: str, include: Optional[list[str]], exclude:
                 LOG.info("%s: %d", pattern_name, count)
 
 
+def repo_test_patterns(tests_path: str, repos_path: str, include: Optional[list[str]], exclude: Optional[list[str]], verbose: bool = False, quiet: bool = False, progress: bool = False) -> None:
+    """Test a set of repos provided in a file. Clone repos into a local directory."""
+    global RESULTS
+    RESULTS = {}
+
+    db = hyperscan.Database()
+    patterns = []
+
+    if not Path(repos_path).is_file:
+        LOG.error("❌ cannot find repos file at '%s'", repos_path)
+        exit(1)
+
+    size_read: int = 0
+
+    for dirpath, dirnames, filenames in os.walk(tests_path):
+        if PATTERNS_FILENAME in filenames:
+            patterns.extend(parse_patterns(dirpath, include=include, exclude=exclude))
+
+    if not hs_compile(db, [pattern.regex_string() for pattern in patterns], labels=[pattern.type for pattern in patterns]):
+        if not quiet:
+            LOG.error("❌ hyperscan pattern compilation error in '%s'", dirpath)
+            exit(1)
+
+    # make cloning path in home folder
+    clone_path = Path(os.environ.get("HOME")) / '.local' / 'secret_scanning_tools' / 'repos'
+    os.makedirs(clone_path, exist_ok=True)
+
+    try:
+        with open(repos_path) as repos:
+            repo_list = repos.readlines()
+            total = len(repo_list)
+        
+            if progress:
+                pb = tqdm(total=total)
+
+            for repo_name in repo_list:
+                repo_tuple = repo_name.strip().split('/')
+                try:
+                    repo = Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", clone_path / repo_tuple[0] / repo_tuple[1])
+                except GitCommandError as err:
+                    LOG.debug("Failed to clone repo '%s', maybe already cloned?", repo_name)
+
+                # now scan the repo
+                # ...
+
+                if progress:
+                    pb.update(1)
+    except OSError as err:
+        LOG.error("❌ cannot find repos file at '%s'", repos_path)
+        exit(1)
+   
+
 # sideffect: writes to global RESULTS
 def scan(db: hyperscan.Database,
          path: Path,
@@ -526,6 +580,7 @@ def add_args(parser: ArgumentParser) -> None:
     parser.add_argument("--progress", "-p", action="store_true", help="Show a progress bar where relevant")
     parser.add_argument("--include", "-i", nargs="*", help="Include these pattern IDs")
     parser.add_argument("--exclude", "-x", nargs="*", help="Exclude these pattern IDs")
+    parser.add_argument("--repos", "-R", help="File containing list of repos to clone from GitHub and scan")
 
 
 def check_platform() -> None:
@@ -559,6 +614,9 @@ def main() -> None:
 
     if args.random:
         random_test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
+
+    if args.repos:
+        repo_test_patterns(args.tests, args.repos, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
 
 
 if __name__ == "__main__":
