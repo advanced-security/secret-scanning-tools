@@ -364,34 +364,12 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
     return ret
 
 
-def dry_run_patterns(tests_path: str, extra_directory: str, include: Optional[list[str]], exclude: Optional[list[str]], verbose: bool = False, quiet: bool = False) -> None:
+def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_directory: str, verbose: bool = False, quiet: bool = False, clear_results: bool = True, size_read: int = 0, files_read: int = 0) -> tuple[int, int]:
     """Dry run all of the discovered patterns in the given path against the extra directory, recursively."""
     global RESULTS
-    RESULTS = {}
 
-    db = hyperscan.Database()
-    patterns = []
-
-    size_read: int = 0
-    files_read: int = 0
-
-    if not os.path.isdir(extra_directory):
-        if not quiet:
-            LOG.error("❌ extra directory not found: %s", extra_directory)
-        exit(1)
-
-    for dirpath, dirnames, filenames in os.walk(tests_path):
-        if PATTERNS_FILENAME in filenames:
-            patterns.extend(parse_patterns(dirpath, include=include, exclude=exclude))
-
-    if len(patterns) == 0:
-        LOG.error("❌ Failed to find any patterns in %s", str(tests_path))
-        return
-
-    if not hs_compile(db, [pattern.regex_string() for pattern in patterns], labels=[pattern.type for pattern in patterns]):
-        if not quiet:
-            LOG.error("❌ hyperscan pattern compilation error in '%s'", dirpath)
-            exit(1)
+    if clear_results:
+        RESULTS = {}
 
     for dirpath, dirnames, filenames in os.walk(extra_directory):
         # TODO: exclude using globs
@@ -413,46 +391,44 @@ def dry_run_patterns(tests_path: str, extra_directory: str, include: Optional[li
                              patterns,
                              verbose=verbose,
                              quiet=quiet,
-                             write_to_results=not quiet,
+                             write_to_results=(not clear_results) or (not quiet),
                              dry_run=True)
                 except (OSError, RuntimeError) as err:
                     LOG.debug("Failed to open and read file '%s': %s", str(file_path), err)
     
     if not quiet:
-        with LOCK:
-            LOG.info(f"ℹ️  Summary: processed %d bytes in %d files", size_read, files_read)
+        print_summary(RESULTS, size_read, files_read)
 
-            for pattern_name, results in RESULTS.items():
-                LOG.info("%s: %d", pattern_name, sum((1 for result in results)))
+    return size_read, files_read
 
 
-def random_test_patterns(tests_path: str, include: Optional[list[str]], exclude: Optional[list[str]], verbose: bool = False, quiet: bool = False, progress: bool = False) -> None:
+def print_summary(size_read, files_read) -> None:
+    """Print summary of results."""
+    global RESULTS
+
+    with LOCK:
+        LOG.info(f"ℹ️  Summary: processed %d bytes in %d files", size_read, files_read)
+
+        for pattern_name, results in RESULTS.items():
+            LOG.info("%s: %d", pattern_name, sum((1 for result in results)))
+
+
+def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbose: bool = False, quiet: bool = False, progress: bool = False) -> None:
+    """Run patterns over random binary and printable ASCII data."""
     global RESULTS
     RESULTS = {}
 
-    db = hyperscan.Database()
-    patterns = []
-
     size_read: int = 0
 
-    for dirpath, dirnames, filenames in os.walk(tests_path):
-        if PATTERNS_FILENAME in filenames:
-            patterns.extend(parse_patterns(dirpath, include=include, exclude=exclude))
-
-    if not hs_compile(db, [pattern.regex_string() for pattern in patterns], labels=[pattern.type for pattern in patterns]):
-        if not quiet:
-            LOG.error("❌ hyperscan pattern compilation error in '%s'", dirpath)
-            exit(1)
-    
-    binary_goal = 1000000000
-    ascii_goal = 1000000000
-    binary_chunk_size = 100000000
-    ascii_chunk_size = 100000000
+    binary_goal = 1_000_000_000
+    ascii_goal = 1_000_000_000
+    binary_chunk_size = 100_000_000
+    ascii_chunk_size = 100_000_000
 
     if progress:
         pb = tqdm(total=binary_goal + ascii_goal, unit_scale=True, unit='B')
 
-    # read 100GB of random binary data
+    # read 1GB of random binary data
     while size_read < binary_goal:
         # read random bytes, 100MB at a time
         binary_content = randbytes(binary_chunk_size)
@@ -500,19 +476,10 @@ def random_test_patterns(tests_path: str, include: Optional[list[str]], exclude:
                 LOG.info("%s: %d", pattern_name, count)
 
 
-def repo_test_patterns(tests_path: str, repos_path: str, include: Optional[list[str]], exclude: Optional[list[str]], verbose: bool = False, quiet: bool = False, progress: bool = False) -> None:
-    """Test a set of repos provided in a file. Clone repos into a local directory."""
-    global RESULTS
-    RESULTS = {}
-
+def build_hyperscan_patterns(tests_path: str, include: Optional[list[str]]=None, exclude: Optional[list[str]]=None) -> tuple[hyperscan.Database, list[Pattern]]:
+    """Build a hyperscan database from a path of tests, and return the database and the patterns used to build it."""
     db = hyperscan.Database()
     patterns = []
-
-    if not Path(repos_path).is_file:
-        LOG.error("❌ cannot find repos file at '%s'", repos_path)
-        exit(1)
-
-    size_read: int = 0
 
     for dirpath, dirnames, filenames in os.walk(tests_path):
         if PATTERNS_FILENAME in filenames:
@@ -521,35 +488,57 @@ def repo_test_patterns(tests_path: str, repos_path: str, include: Optional[list[
     if not hs_compile(db, [pattern.regex_string() for pattern in patterns], labels=[pattern.type for pattern in patterns]):
         if not quiet:
             LOG.error("❌ hyperscan pattern compilation error in '%s'", dirpath)
-            exit(1)
+            return None, patterns
+    return db, patterns
+
+
+def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_path: str, verbose: bool = False, quiet: bool = False, progress: bool = False) -> None:
+    """Test a set of repos provided in a file. Clone repos into a local directory."""
+    global RESULTS
+    RESULTS = {}
+
+    if not Path(repos_path).is_file:
+        LOG.error("❌ cannot find repos file at '%s'", repos_path)
+        exit(1)
+
+    size_read: int = 0
+    files_read: int = 0
 
     # make cloning path in home folder
     clone_path = Path(os.environ.get("HOME")) / '.local' / 'secret_scanning_tools' / 'repos'
     os.makedirs(clone_path, exist_ok=True)
 
+    LOG.info("Cloned repos path at: %s", str(clone_path))
+
     try:
         with open(repos_path) as repos:
-            repo_list = repos.readlines()
+            repo_list = [repo.strip() for repo in repos.readlines() if '/' in repo]
             total = len(repo_list)
         
             if progress:
                 pb = tqdm(total=total)
 
             for repo_name in repo_list:
-                repo_tuple = repo_name.strip().split('/')
                 try:
-                    repo = Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", clone_path / repo_tuple[0] / repo_tuple[1])
+                    repo_tuple = repo_name.split('/')
+                    repo_path = clone_path / repo_tuple[0] / repo_tuple[1]
+                    repo = Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", repo_path)
                 except GitCommandError as err:
-                    LOG.debug("Failed to clone repo '%s', maybe already cloned?", repo_name)
+                    LOG.debug("Failed to clone repo '%s', does it exist? Was it already cloned?", repo_name)
 
+                LOG.info("Scanning repo: %s", repo_name)
                 # now scan the repo
-                # ...
+                size_read_run, files_read_run = dry_run_patterns(db, patterns, repo_path, verbose, quiet=True, clear_results=False, size_read=size_read, files_read=files_read)
+                size_read += size_read_run
+                files_read += files_read_run
 
                 if progress:
                     pb.update(1)
     except OSError as err:
         LOG.error("❌ cannot find repos file at '%s'", repos_path)
         exit(1)
+
+    print_summary(size_read, files_read)
    
 
 # sideffect: writes to global RESULTS
@@ -609,14 +598,18 @@ def main() -> None:
     if not test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet):
         exit(1)
 
+    db, patterns = build_hyperscan_patterns(args.tests, include=args.include, exclude=args.exclude)
+    if db is None:
+        exit(1)
+
     if args.extra is not None:
-        dry_run_patterns(args.tests, args.extra, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet)
+        dry_run_patterns(db, patterns, args.extra, verbose=args.verbose, quiet=args.quiet)
 
     if args.random:
-        random_test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
+        random_test_patterns(db, patterns, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
 
     if args.repos:
-        repo_test_patterns(args.tests, args.repos, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
+        repo_test_patterns(db, patterns, args.repos, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
 
 
 if __name__ == "__main__":
