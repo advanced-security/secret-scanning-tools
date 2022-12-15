@@ -328,12 +328,17 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
                                 for result in pattern_results
                         ]):
                             if not quiet:
-                                with (Path(dirpath) / expected.get('name', '')).resolve().open("rb") as f:
-                                    content = f.read()
-                                    LOG.error("❌ unmatched expected location for: '%s'; %s:%d-%d; %s", pattern.type,
-                                              expected.get('name'), expected.get('start_offset'),
-                                              expected.get('end_offset'),
-                                              content[expected.get('start_offset', 0):expected.get('end_offset', 0)])
+                                try:
+                                    with (Path(dirpath) / expected.get('name', '')).resolve().open("rb") as f:
+                                        content = f.read()
+                                        LOG.error("❌ unmatched expected location for: '%s'; %s:%d-%d; %s", pattern.type,
+                                                  expected.get('name'), expected.get('start_offset'),
+                                                  expected.get('end_offset'),
+                                                  content[expected.get('start_offset', 0):expected.get('end_offset', 0)])
+                                except OSError as err:
+                                    LOG.error("❌ unmatched expected location for: '%s'; %s:%d-%d; (could not open/read file)", pattern.type,
+                                                  expected.get('name'), expected.get('start_offset'),
+                                                  expected.get('end_offset')) 
                             ok = False
 
                     # did we match anything unexpected?
