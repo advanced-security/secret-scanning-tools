@@ -397,7 +397,7 @@ def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_dire
                     LOG.debug("Failed to open and read file '%s': %s", str(file_path), err)
     
     if not quiet:
-        print_summary(RESULTS, size_read, files_read)
+        print_summary(size_read, files_read)
 
     return size_read, files_read
 
