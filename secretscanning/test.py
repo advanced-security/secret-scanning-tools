@@ -81,35 +81,36 @@ class Pattern():
 def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None) -> list[Pattern]:
     """Parse patterns found in YAML files."""
     patterns = []
-
     patterns_file: str = os.path.join(patterns_dir, PATTERNS_FILENAME)
-    data = yaml.safe_load(open(patterns_file, "r"))
 
-    for pattern in data["patterns"]:
-        LOG.debug("Pattern: %s", json.dumps(pattern, indent=2))
+    with open(patterns_file, "r") as pf:
+        data = yaml.safe_load()
 
-        pattern_type = pattern.get("type")
-        if include:
-            if not pattern_type in include:
-                continue
-        if exclude:
-            if pattern_type in exclude:
-                continue
+        for pattern in data["patterns"]:
+            LOG.debug("Pattern: %s", json.dumps(pattern, indent=2))
 
-        name = pattern.get("name")
-        _type = pattern.get("type")
-        description = pattern.get("description")
+            pattern_type = pattern.get("type")
+            if include:
+                if not pattern_type in include:
+                    continue
+            if exclude:
+                if pattern_type in exclude:
+                    continue
 
-        regex = pattern["regex"]
+            name = pattern.get("name")
+            _type = pattern.get("type")
+            description = pattern.get("description")
 
-        additional_not_matches = regex.get("additional_not_match", [])
-        additional_matches = regex.get("additional_match", [])
+            regex = pattern["regex"]
 
-        expected = pattern.get("expected", [])
+            additional_not_matches = regex.get("additional_not_match", [])
+            additional_matches = regex.get("additional_match", [])
 
-        patterns.append(
-            Pattern(name, _type, description, regex.get('start'), regex.get('pattern'), regex.get('end'), additional_matches,
-                    additional_not_matches, expected))
+            expected = pattern.get("expected", [])
+
+            patterns.append(
+                Pattern(name, _type, description, regex.get('start'), regex.get('pattern'), regex.get('end'), additional_matches,
+                        additional_not_matches, expected))
 
     return patterns
 
@@ -527,7 +528,7 @@ def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_pa
                 try:
                     repo_tuple = repo_name.split('/')
                     repo_path = clone_path / repo_tuple[0] / repo_tuple[1]
-                    repo = Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", repo_path)
+                    _repo = Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", repo_path)
                 except GitCommandError as err:
                     LOG.debug("Failed to clone repo '%s', does it exist? Was it already cloned?", repo_name)
 
