@@ -84,7 +84,7 @@ def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclu
     patterns_file: str = os.path.join(patterns_dir, PATTERNS_FILENAME)
 
     with open(patterns_file, "r") as pf:
-        data = yaml.safe_load()
+        data = yaml.safe_load(pf)
 
         for pattern in data["patterns"]:
             LOG.debug("Pattern: %s", json.dumps(pattern, indent=2))
