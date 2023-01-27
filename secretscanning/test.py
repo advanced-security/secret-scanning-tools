@@ -33,7 +33,7 @@ LOCK = Lock()
 PATTERNS_FILENAME = "patterns.yml"
 RESULTS: dict[str, list[dict[str, Any]], int] = {}
 PATH_EXCLUDES = ('.git',)
-FILE_EXCLUDES = ('README.md')
+FILENAME_EXCLUDES = ('README.md', PATTERNS_FILENAME)
   
 
 def LOCKED_LOG(*args, **kwargs) -> None:
@@ -309,7 +309,7 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
                 if not quiet:
                     LOG.error("❌ hyperscan pattern compilation error in '%s'", rel_dirpath)
                     exit(1)
-            for filename in [f for f in filenames if f != PATTERNS_FILENAME]:
+            for filename in [f for f in filenames if f not in FILENAME_EXCLUDES]:
                 path = (Path(dirpath) / filename).relative_to(tests_path)
                 with (Path(tests_path) / path).resolve().open("rb") as f:
                     content = f.read()
@@ -383,9 +383,6 @@ def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_dire
         # TODO: take as an argument
         if not any([parent.name in PATH_EXCLUDES for parent in Path(dirpath).parents if parent != '']):
             for filename in filenames:
-                # TODO: take as an argument
-                if filename in FILE_EXCLUDES:
-                    continue
                 path = (Path(dirpath) / filename).relative_to(extra_directory)
                 try:
                     file_path = (Path(extra_directory) / path).resolve()
