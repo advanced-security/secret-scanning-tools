@@ -33,7 +33,8 @@ LOCK = Lock()
 PATTERNS_FILENAME = "patterns.yml"
 RESULTS: dict[str, list[dict[str, Any]], int] = {}
 PATH_EXCLUDES = ('.git',)
-
+FILE_EXCLUDES = ('README.md')
+  
 
 def LOCKED_LOG(*args, **kwargs) -> None:
     """Acquire lock then do log message."""
@@ -379,8 +380,12 @@ def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_dire
 
     for dirpath, dirnames, filenames in os.walk(extra_directory):
         # TODO: exclude using globs
+        # TODO: take as an argument
         if not any([parent.name in PATH_EXCLUDES for parent in Path(dirpath).parents if parent != '']):
             for filename in filenames:
+                # TODO: take as an argument
+                if filename in FILE_EXCLUDES:
+                    continue
                 path = (Path(dirpath) / filename).relative_to(extra_directory)
                 try:
                     file_path = (Path(extra_directory) / path).resolve()
