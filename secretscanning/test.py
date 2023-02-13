@@ -586,7 +586,7 @@ def add_args(parser: ArgumentParser) -> None:
     parser.add_argument("--include", "-i", nargs="*", help="Include these pattern IDs")
     parser.add_argument("--exclude", "-x", nargs="*", help="Exclude these pattern IDs")
     parser.add_argument("--repos", "-R", help="File containing list of repos to clone from GitHub and scan")
-
+    parser.add_argument("--only-match", "-o", action="store_true", help="Only show the matching pattern part of any results")
 
 def check_platform() -> None:
     """Check we are on an Intel-compatible machine.
