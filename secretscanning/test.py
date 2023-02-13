@@ -157,7 +157,7 @@ def hs_compile(db: hyperscan.Database, regex: Union[str | list[str] | bytes | li
 # sideffect: writes to global RESULT
 # context: run in a thread by hyperscan
 def report_scan_results(patterns: list[Pattern], path: Path, content: bytes, verbose: bool, quiet: bool,
-                        write_to_results: bool, dry_run: bool, rule_id: int, start_offset: int, end_offset: int,
+                        write_to_results: bool, dry_run: bool, only_match: bool, rule_id: int, start_offset: int, end_offset: int,
                         flags: int, context: Optional[Any]) -> None:
     """Hyperscan callback."""
     match_content: bytes = content[start_offset:end_offset]
@@ -184,7 +184,8 @@ def report_scan_results(patterns: list[Pattern], path: Path, content: bytes, ver
                       verbose=verbose,
                       quiet=quiet,
                       write_to_results=write_to_results,
-                      dry_run=dry_run)
+                      dry_run=dry_run,
+                      only_match=only_match)
 
 
 def path_offsets_match(first: dict[str, Any], second: dict[str, Any]) -> bool:
@@ -205,7 +206,8 @@ def pcre_result_match(pattern: Pattern,
                       verbose: bool = False,
                       quiet: bool = False,
                       dry_run: bool = False,
-                      write_to_results: bool = False) -> None:
+                      write_to_results: bool = False,
+                      only_match: bool = False) -> None:
     """Use PCRE to extract start, pattern and end matches."""
     global RESULTS
 
@@ -272,10 +274,12 @@ def pcre_result_match(pattern: Pattern,
 
         if dry_run:
             # for dry-run, TODO: improve to be single-line grep or SARIF output
+            if only_match:
+                output = f"{repr(parts['pattern'])[1:-1]}"
+            else:
+                output = f"{repr(file_details['name'])[1:-1]}:{int(file_details['start_offset'])}-{int(file_details['end_offset'])}: {repr(parts['start'])[1:-1]}{Fore.RED}{repr(parts['pattern'])[1:-1]}{Style.RESET_ALL}{repr(parts['end'])[1:-1]} (with '{repr(pattern.name)[1:-1]}')"
             with LOCK:
-                print(
-                        f"{repr(file_details['name'])[1:-1]}:{int(file_details['start_offset'])}-{int(file_details['end_offset'])}: {repr(parts['start'])[1:-1]}{Fore.RED}{repr(parts['pattern'])[1:-1]}{Style.RESET_ALL}{repr(parts['end'])[1:-1]} (with '{repr(pattern.name)[1:-1]}')"
-                )
+                print(output)
 
 
 def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None, verbose: bool = False, quiet: bool = False) -> bool:
@@ -371,7 +375,7 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
     return ret
 
 
-def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_directory: str, verbose: bool = False, quiet: bool = False, clear_results: bool = True, size_read: int = 0, files_read: int = 0) -> tuple[int, int]:
+def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_directory: str, verbose: bool = False, quiet: bool = False, clear_results: bool = True, size_read: int = 0, files_read: int = 0, only_match: bool = False) -> tuple[int, int]:
     """Dry run all of the discovered patterns in the given path against the extra directory, recursively."""
     global RESULTS
 
@@ -400,7 +404,8 @@ def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_dire
                              verbose=verbose,
                              quiet=quiet,
                              write_to_results=(not clear_results) or (not quiet),
-                             dry_run=True)
+                             dry_run=True,
+                             only_match=only_match)
                 except (OSError, RuntimeError) as err:
                     LOG.debug("Failed to open and read file '%s': %s", str(file_path), err)
     
@@ -421,7 +426,7 @@ def print_summary(size_read, files_read) -> None:
             LOG.info("%s: %d", pattern_name, sum((1 for result in results)))
 
 
-def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbose: bool = False, quiet: bool = False, progress: bool = False) -> None:
+def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbose: bool = False, quiet: bool = False, progress: bool = False, only_match: bool=False) -> None:
     """Run patterns over random binary and printable ASCII data."""
     global RESULTS
     RESULTS = {}
@@ -448,7 +453,8 @@ def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbos
              verbose=verbose,
              quiet=quiet,
              write_to_results=True,
-             dry_run=True)
+             dry_run=True,
+             only_match=only_match)
 
         size_read += binary_chunk_size
         if progress:
@@ -466,7 +472,8 @@ def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbos
              verbose=verbose,
              quiet=quiet,
              write_to_results=True,
-             dry_run=True)
+             dry_run=True,
+             only_match=only_match)
 
         size_read += ascii_chunk_size
         if progress:
@@ -500,7 +507,7 @@ def build_hyperscan_patterns(tests_path: str, include: Optional[list[str]]=None,
     return db, patterns
 
 
-def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_path: str, verbose: bool = False, quiet: bool = False, progress: bool = False) -> None:
+def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_path: str, verbose: bool = False, quiet: bool = False, progress: bool = False, only_match: bool = False) -> None:
     """Test a set of repos provided in a file. Clone repos into a local directory."""
     global RESULTS
     RESULTS = {}
@@ -536,7 +543,7 @@ def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_pa
 
                 LOG.info("Scanning repo: %s", repo_name)
                 # now scan the repo
-                size_read_run, files_read_run = dry_run_patterns(db, patterns, repo_path, verbose, quiet=True, clear_results=False, size_read=size_read, files_read=files_read)
+                size_read_run, files_read_run = dry_run_patterns(db, patterns, repo_path, verbose, quiet=True, clear_results=False, size_read=size_read, files_read=files_read, only_match=only_match)
                 size_read += size_read_run
                 files_read += files_read_run
 
@@ -557,9 +564,10 @@ def scan(db: hyperscan.Database,
          verbose: bool = False,
          quiet: bool = False,
          write_to_results: bool = True,
-         dry_run: bool = False) -> None:
+         dry_run: bool = False,
+         only_match: bool = False) -> None:
     """Scan content with database. Results are handled in a thread launched by hyperscan (running the `partial` we pass in)."""
-    db.scan(content, partial(report_scan_results, patterns, path, content, verbose, quiet, write_to_results, dry_run))
+    db.scan(content, partial(report_scan_results, patterns, path, content, verbose, quiet, write_to_results, dry_run, only_match))
 
 
 def add_args(parser: ArgumentParser) -> None:
@@ -611,13 +619,13 @@ def main() -> None:
         exit(1)
 
     if args.extra is not None:
-        dry_run_patterns(db, patterns, args.extra, verbose=args.verbose, quiet=args.quiet)
+        dry_run_patterns(db, patterns, args.extra, verbose=args.verbose, quiet=args.quiet, only_match=args.only_match)
 
     if args.random:
-        random_test_patterns(db, patterns, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
+        random_test_patterns(db, patterns, verbose=args.verbose, quiet=args.quiet, progress=args.progress, only_match=args.only_match)
 
     if args.repos:
-        repo_test_patterns(db, patterns, args.repos, verbose=args.verbose, quiet=args.quiet, progress=args.progress)
+        repo_test_patterns(db, patterns, args.repos, verbose=args.verbose, quiet=args.quiet, progress=args.progress, only_match=args.only_match)
 
 
 if __name__ == "__main__":
