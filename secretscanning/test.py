@@ -587,6 +587,8 @@ def add_args(parser: ArgumentParser) -> None:
     parser.add_argument("--exclude", "-x", nargs="*", help="Exclude these pattern IDs")
     parser.add_argument("--repos", "-R", help="File containing list of repos to clone from GitHub and scan")
     parser.add_argument("--only-match", "-o", action="store_true", help="Only show the matching pattern part of any results")
+    parser.add_argument("--continue-on-fail", "-c", action="store_true", help="Continue if testing patterns fails")
+
 
 def check_platform() -> None:
     """Check we are on an Intel-compatible machine.
@@ -611,7 +613,7 @@ def main() -> None:
     if args.debug:
         LOG.setLevel(logging.DEBUG)
 
-    if not test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet):
+    if not test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet) and not args.continue_on_fail:
         exit(1)
 
     db, patterns = build_hyperscan_patterns(args.tests, include=args.include, exclude=args.exclude)
