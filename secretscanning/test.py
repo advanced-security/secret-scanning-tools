@@ -11,33 +11,33 @@ import os
 from pathlib import Path
 from argparse import ArgumentParser
 import logging
-import yaml
 import json
-import hyperscan
 from functools import partial
-import pcre
 from typing import Union, Any, Optional
 import platform
-from colorama import Fore, Style
 from threading import Lock
-from random import randbytes, choices
+from random import randbytes, choices  # noqa: DUO102
 from string import printable
 from itertools import zip_longest
+import tempfile
 from tqdm import tqdm
-from git import Repo
+from git import Repo  # type: ignore
 from git.exc import GitCommandError
-
+from colorama import Fore, Style
+import hyperscan
+import yaml
+import pcre
 
 LOG = logging.getLogger(__name__)
 LOCK = Lock()
 PATTERNS_FILENAME = "patterns.yml"
-RESULTS: dict[str, list[dict[str, Any]], int] = {}
+RESULTS: dict[str, list[dict[str, Any]]] = {}
 PATH_EXCLUDES = ('.git',)
 FILENAME_EXCLUDES = ('README.md', PATTERNS_FILENAME)
 MATCHES_LIMIT = 5
 
 
-def LOCKED_LOG(*args, **kwargs) -> None:
+def LOCKED_LOG(*args: Any, **kwargs: Any) -> None:
     """Acquire lock then do log message."""
     with LOCK:
         logging.log(*args, **kwargs)
@@ -49,8 +49,9 @@ class Pattern():
     default_start = r'\A|[^0-9A-Za-z]'
     default_end = r'\z|[^0-9A-Za-z]'
 
-    def __init__(self, name: str, _type: str, description: str, start: str, pattern: str, end: str, additional_matches: list[str],
-                 additional_not_matches: list[str], expected: list[dict[str, Any]]) -> None:
+    def __init__(self, name: str, _type: str, description: str, start: str, pattern: str, end: str,
+                 additional_matches: list[str], additional_not_matches: list[str], expected: list[dict[str,
+                                                                                                       Any]]) -> None:
         self.name = name.strip() if name is not None else None
         self.type = _type.strip() if _type is not None else None
         self.description = description.strip() if description is not None else None
@@ -80,8 +81,14 @@ class Pattern():
             exit(1)
 
 
-def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None, no_warn_on_additional_matches_number: bool = True, lt_ghes_3_8: bool=False) -> list[Pattern]:
+def parse_patterns(patterns_dir: str,
+                   include: Optional[list[str]] = None,
+                   exclude: Optional[list[str]] = None,
+                   no_warn_on_additional_matches_number: bool = True,
+                   lt_ghes_3_8: bool = False) -> list[Pattern]:
     """Parse patterns found in YAML files."""
+    global MATCHES_LIMIT
+
     patterns = []
     patterns_file: str = os.path.join(patterns_dir, PATTERNS_FILENAME)
 
@@ -93,7 +100,7 @@ def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclu
 
             pattern_type = pattern.get("type")
             if include:
-                if not pattern_type in include:
+                if pattern_type not in include:
                     continue
             if exclude:
                 if pattern_type in exclude:
@@ -111,7 +118,8 @@ def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclu
             if not no_warn_on_additional_matches_number:
                 matches_count = len(additional_not_matches) + len(additional_matches)
                 if matches_count > MATCHES_LIMIT:
-                    LOG.warning("Number of additional matches is greater than the limit for upload in the UI: %s vs %s", matches_count, MATCHES_LIMIT)
+                    LOG.warning("Number of additional matches is greater than the limit for upload in the UI: %s vs %s",
+                                matches_count, MATCHES_LIMIT)
 
             if lt_ghes_3_8:
                 for item in additional_not_matches + additional_matches:
@@ -121,13 +129,15 @@ def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclu
             expected = pattern.get("expected", [])
 
             patterns.append(
-                Pattern(name, _type, description, regex.get('start'), regex.get('pattern'), regex.get('end'), additional_matches,
-                        additional_not_matches, expected))
+                Pattern(name, _type, description, regex.get('start'), regex.get('pattern'), regex.get('end'),
+                        additional_matches, additional_not_matches, expected))
 
     return patterns
 
 
-def hs_compile(db: hyperscan.Database, regex: Union[str | list[str] | bytes | list[bytes]], labels: list[str] = None) -> bool:
+def hs_compile(db: hyperscan.Database,
+               regex: Union[str | list[str] | bytes | list[bytes]],
+               labels: Optional[list[str]] = None) -> bool:
     """Compile one or more hyperscan regexes into the given database."""
     regex_bytes: list[bytes]
     labels = labels if labels is not None else []
@@ -151,14 +161,15 @@ def hs_compile(db: hyperscan.Database, regex: Union[str | list[str] | bytes | li
 
     # TODO: also do with hyperscan.HS_FLAG_UCP so we can test them in that encoding - \x00A\x00B etc. (Windows style)
     try:
-        db.compile(regex_bytes, flags=hyperscan.HS_FLAG_SOM_LEFTMOST|hyperscan.HS_FLAG_UTF8)
+        db.compile(regex_bytes, flags=hyperscan.HS_FLAG_SOM_LEFTMOST | hyperscan.HS_FLAG_UTF8)
     except hyperscan.error:
         LOG.debug("Failed to compile a rule: %s", str(regex_bytes))
         for label, regex in zip_longest(labels, regex_bytes):
             try:
-                db.compile([regex], flags=hyperscan.HS_FLAG_SOM_LEFTMOST|hyperscan.HS_FLAG_UTF8)
+                db.compile([regex], flags=hyperscan.HS_FLAG_SOM_LEFTMOST | hyperscan.HS_FLAG_UTF8)
             except hyperscan.error as err:
-                LOG.error("❌ Failed to compile %s%s: %s", str(regex), ' (' + label + ')' if label is not None else '', err)
+                LOG.error("❌ Failed to compile %s%s: %s", str(regex), ' (' + label + ')' if label is not None else '',
+                          err)
 
                 return False
 
@@ -177,7 +188,7 @@ def report_scan_results(patterns: list[Pattern], path: Path, content: bytes, ver
     if LOG.level == logging.DEBUG:
         with LOCK:
             LOG.debug("Matched '%s' id %d at %d:%d with flags %s and context %s", pattern.name, rule_id, start_offset,
-                  end_offset, flags, context)
+                      end_offset, flags, context)
             LOG.debug("Matched: %s", match_content)
 
     regex_string: bytes = pattern.regex_string()
@@ -268,14 +279,16 @@ def pcre_result_match(pattern: Pattern,
             if not any([path_offsets_match(file_details, loc) for loc in pattern.expected]):
                 if not quiet:
                     LOCKED_LOG(logging.ERROR if pattern.expected else logging.INFO,
-                            "%s result '%s' for '%s' in path '%s'; %s:%d-%d",
-                            "❌ unexpected" if pattern.expected else "ℹ️  found", parts['pattern'], pattern.name,
-                            path.parent, file_details['name'], file_details['start_offset'], file_details['end_offset'])
+                               "%s result '%s' for '%s' in path '%s'; %s:%d-%d",
+                               "❌ unexpected" if pattern.expected else "ℹ️  found", parts['pattern'], pattern.name,
+                               path.parent, file_details['name'], file_details['start_offset'],
+                               file_details['end_offset'])
             else:
                 if not quiet or LOG.level == logging.DEBUG:
                     LOCKED_LOG(logging.INFO if verbose else logging.DEBUG,
-                            "✅ expected result '%s' for '%s' in path '%s'; %s:%d-%d", parts['pattern'], pattern.name,
-                            path.parent, file_details['name'], file_details['start_offset'], file_details['end_offset'])
+                               "✅ expected result '%s' for '%s' in path '%s'; %s:%d-%d", parts['pattern'], pattern.name,
+                               path.parent, file_details['name'], file_details['start_offset'],
+                               file_details['end_offset'])
 
         if write_to_results:
             with LOCK:
@@ -291,12 +304,19 @@ def pcre_result_match(pattern: Pattern,
             if only_match:
                 output = f"{repr(parts['pattern'])[1:-1]}"
             else:
-                output = f"{repr(file_details['name'])[1:-1]}:{int(file_details['start_offset'])}-{int(file_details['end_offset'])}: {repr(parts['start'])[1:-1]}{Fore.RED}{repr(parts['pattern'])[1:-1]}{Style.RESET_ALL}{repr(parts['end'])[1:-1]} (with '{repr(pattern.name)[1:-1]}')"
+                output = f"{repr(file_details['name'])[1:-1]}:{int(str(file_details['start_offset']))}-{int(str(file_details['end_offset']))}: {repr(parts['start'])[1:-1]}{Fore.RED}{repr(parts['pattern'])[1:-1]}{Style.RESET_ALL}{repr(parts['end'])[1:-1]} (with '{repr(pattern.name)[1:-1]}')"
             with LOCK:
                 print(output)
 
 
-def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None, verbose: bool = False, quiet: bool = False, no_additional_matches: bool = False, no_warn_on_additional_matches_number: bool = False, lt_ghes_3_8: bool = False) -> bool:
+def test_patterns(tests_path: str,
+                  include: Optional[list[str]] = None,
+                  exclude: Optional[list[str]] = None,
+                  verbose: bool = False,
+                  quiet: bool = False,
+                  no_additional_matches: bool = False,
+                  no_warn_on_additional_matches_number: bool = False,
+                  lt_ghes_3_8: bool = False) -> bool:
     """Run all of the discovered patterns in the given path."""
     global RESULTS
     RESULTS = {}
@@ -316,14 +336,19 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
             rel_dirpath = Path(dirpath).relative_to(tests_path)
             LOG.debug("Found patterns in %s", rel_dirpath)
 
-            patterns = parse_patterns(dirpath, include=include, exclude=exclude, no_warn_on_additional_matches_number=no_warn_on_additional_matches_number, lt_ghes_3_8=lt_ghes_3_8)
+            patterns = parse_patterns(dirpath,
+                                      include=include,
+                                      exclude=exclude,
+                                      no_warn_on_additional_matches_number=no_warn_on_additional_matches_number,
+                                      lt_ghes_3_8=lt_ghes_3_8)
 
             if len(patterns) == 0:
                 continue
 
             found_patterns = True
 
-            if not hs_compile(db, [pattern.regex_string() for pattern in patterns], labels=[pattern.type for pattern in patterns]):
+            if not hs_compile(db, [pattern.regex_string() for pattern in patterns],
+                              labels=[pattern.type for pattern in patterns]):
                 if not quiet:
                     LOG.error("❌ hyperscan pattern compilation error in '%s'", rel_dirpath)
                     exit(1)
@@ -333,7 +358,13 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
                     content = f.read()
 
                     # sideffect: writes to global RESULTS
-                    scan(db, path, content, patterns, verbose=verbose, quiet=quiet, no_additional_matches=no_additional_matches)
+                    scan(db,
+                         path,
+                         content,
+                         patterns,
+                         verbose=verbose,
+                         quiet=quiet,
+                         no_additional_matches=no_additional_matches)
 
             # threads should all exit before here, so we don't need to use LOCK
             for pattern in patterns:
@@ -342,23 +373,23 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
 
                 if pattern.expected:
                     for expected in pattern.expected:
-                        pattern_results = RESULTS.get(pattern.name) if pattern.name in RESULTS else []
-                        if not any([
-                                path_offsets_match(expected, result.get('file', {}))
-                                for result in pattern_results
-                        ]):
+                        pattern_results = RESULTS.get(pattern.name, [])
+                        if not any([path_offsets_match(expected, result.get('file', {})) for result in pattern_results
+                                   ]):
                             if not quiet:
                                 try:
                                     with (Path(dirpath) / expected.get('name', '')).resolve().open("rb") as f:
                                         content = f.read()
-                                        LOG.error("❌ unmatched expected location for: '%s'; %s:%d-%d; %s", pattern.type,
-                                                  expected.get('name'), expected.get('start_offset'),
-                                                  expected.get('end_offset'),
-                                                  content[expected.get('start_offset', 0):expected.get('end_offset', 0)])
+                                        LOG.error(
+                                            "❌ unmatched expected location for: '%s'; %s:%d-%d; %s", pattern.type,
+                                            expected.get('name'), expected.get('start_offset'),
+                                            expected.get('end_offset'),
+                                            content[expected.get('start_offset', 0):expected.get('end_offset', 0)])
                                 except OSError as err:
-                                    LOG.error("❌ unmatched expected location for: '%s'; %s:%d-%d; (could not open/read file)", pattern.type,
-                                                  expected.get('name'), expected.get('start_offset'),
-                                                  expected.get('end_offset')) 
+                                    LOG.error(
+                                        "❌ unmatched expected location for: '%s'; %s:%d-%d; could not open/read file: %s",
+                                        pattern.type, expected.get('name'), expected.get('start_offset'),
+                                        expected.get('end_offset'), err)
                             ok = False
 
                     # did we match anything unexpected?
@@ -389,7 +420,16 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
     return ret
 
 
-def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_directory: str, verbose: bool = False, quiet: bool = False, clear_results: bool = True, size_read: int = 0, files_read: int = 0, only_match: bool = False, no_additional_matches: bool = False) -> tuple[int, int]:
+def dry_run_patterns(db: hyperscan.Database,
+                     patterns: list[Pattern],
+                     extra_directory: str,
+                     verbose: bool = False,
+                     quiet: bool = False,
+                     clear_results: bool = True,
+                     size_read: int = 0,
+                     files_read: int = 0,
+                     only_match: bool = False,
+                     no_additional_matches: bool = False) -> tuple[int, int]:
     """Dry run all of the discovered patterns in the given path against the extra directory, recursively."""
     global RESULTS
 
@@ -405,7 +445,7 @@ def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_dire
                 try:
                     file_path = (Path(extra_directory) / path).resolve()
                     with file_path.open("rb") as f:
-                        # TODO: memory map instead? 
+                        # TODO: memory map instead?
                         content = f.read()
 
                         size_read += len(content)
@@ -423,25 +463,31 @@ def dry_run_patterns(db: hyperscan.Database, patterns: list[Pattern], extra_dire
                              no_additional_matches=no_additional_matches)
                 except (OSError, RuntimeError) as err:
                     LOG.debug("Failed to open and read file '%s': %s", str(file_path), err)
-    
+
     if not quiet:
         print_summary(size_read, files_read)
 
     return size_read, files_read
 
 
-def print_summary(size_read, files_read) -> None:
+def print_summary(size_read: int, files_read: int) -> None:
     """Print summary of results."""
     global RESULTS
 
     with LOCK:
-        LOG.info(f"ℹ️  Summary: processed %d bytes in %d files", size_read, files_read)
+        LOG.info("ℹ️  Summary: processed %d bytes in %d files", size_read, files_read)
 
         for pattern_name, results in RESULTS.items():
             LOG.info("%s: %d", pattern_name, sum((1 for result in results)))
 
 
-def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbose: bool = False, quiet: bool = False, progress: bool = False, only_match: bool=False, no_additional_matches: bool=False) -> None:
+def random_test_patterns(db: hyperscan.Database,
+                         patterns: list[Pattern],
+                         verbose: bool = False,
+                         quiet: bool = False,
+                         progress: bool = False,
+                         only_match: bool = False,
+                         no_additional_matches: bool = False) -> None:
     """Run patterns over random binary and printable ASCII data."""
     global RESULTS
     RESULTS = {}
@@ -477,9 +523,9 @@ def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbos
             pb.update(binary_chunk_size)
 
     # read 1GB of random ascii data
-    while size_read < binary_goal + ascii_goal: 
+    while size_read < binary_goal + ascii_goal:
         # some random ASCII (printable characters)
-        ascii_content = ''.join(choices(printable, k=ascii_chunk_size)).encode('utf-8')
+        ascii_content = ''.join(choices(printable, k=ascii_chunk_size)).encode('utf-8')  # nosec
 
         scan(db,
              None,
@@ -508,7 +554,10 @@ def random_test_patterns(db: hyperscan.Database, patterns: list[Pattern], verbos
                 LOG.info("%s: %d", pattern_name, count)
 
 
-def build_hyperscan_patterns(tests_path: str, include: Optional[list[str]]=None, exclude: Optional[list[str]]=None) -> tuple[hyperscan.Database, list[Pattern]]:
+def build_hyperscan_patterns(tests_path: str,
+                             include: Optional[list[str]] = None,
+                             exclude: Optional[list[str]] = None,
+                             quiet: bool = False) -> tuple[hyperscan.Database, list[Pattern]]:
     """Build a hyperscan database from a path of tests, and return the database and the patterns used to build it."""
     db = hyperscan.Database()
     patterns = []
@@ -517,14 +566,22 @@ def build_hyperscan_patterns(tests_path: str, include: Optional[list[str]]=None,
         if PATTERNS_FILENAME in filenames:
             patterns.extend(parse_patterns(dirpath, include=include, exclude=exclude))
 
-    if not hs_compile(db, [pattern.regex_string() for pattern in patterns], labels=[pattern.type for pattern in patterns]):
+    if not hs_compile(db, [pattern.regex_string() for pattern in patterns],
+                      labels=[pattern.type for pattern in patterns]):
         if not quiet:
             LOG.error("❌ hyperscan pattern compilation error in '%s'", dirpath)
             return None, patterns
     return db, patterns
 
 
-def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_path: str, verbose: bool = False, quiet: bool = False, progress: bool = False, only_match: bool = False) -> None:
+def repo_test_patterns(db: hyperscan.Database,
+                       patterns: list[Pattern],
+                       repos_path: str,
+                       verbose: bool = False,
+                       quiet: bool = False,
+                       progress: bool = False,
+                       only_match: bool = False,
+                       no_additional_matches: bool = False) -> None:
     """Test a set of repos provided in a file. Clone repos into a local directory."""
     global RESULTS
     RESULTS = {}
@@ -537,7 +594,14 @@ def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_pa
     files_read: int = 0
 
     # make cloning path in home folder
-    clone_path = Path(os.environ.get("HOME")) / '.local' / 'secret_scanning_tools' / 'repos'
+    home = os.environ.get("HOME")
+    tmp_dir = None
+    if home is None:
+        tmp_dir = tempfile.TemporaryDirectory()
+        home = tmp_dir.name
+        LOG.warning("Cannot find HOME, using temporary directory instead: %s", home)
+    clone_path = Path(home) / '.local' / 'secret_scanning_tools' / 'repos'
+
     os.makedirs(clone_path, exist_ok=True)
 
     LOG.info("Cloned repos path at: %s", str(clone_path))
@@ -546,7 +610,7 @@ def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_pa
         with open(repos_path) as repos:
             repo_list = [repo.strip() for repo in repos.readlines() if '/' in repo]
             total = len(repo_list)
-        
+
             if progress:
                 pb = tqdm(total=total)
 
@@ -554,28 +618,41 @@ def repo_test_patterns(db: hyperscan.Database, patterns: list[Pattern], repos_pa
                 try:
                     repo_tuple = repo_name.split('/')
                     repo_path = clone_path / repo_tuple[0] / repo_tuple[1]
-                    _repo = Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", repo_path)
+                    Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", repo_path)
                 except GitCommandError as err:
-                    LOG.debug("Failed to clone repo '%s', does it exist? Was it already cloned?", repo_name)
+                    LOG.debug("Failed to clone repo '%s', does it exist? Was it already cloned? Error: %s", repo_name,
+                              err)
 
                 LOG.info("Scanning repo: %s", repo_name)
                 # now scan the repo
-                size_read_run, files_read_run = dry_run_patterns(db, patterns, repo_path, verbose, quiet=True, clear_results=False, size_read=size_read, files_read=files_read, only_match=only_match)
+                size_read_run, files_read_run = dry_run_patterns(db,
+                                                                 patterns,
+                                                                 str(repo_path),
+                                                                 verbose,
+                                                                 quiet=True,
+                                                                 clear_results=False,
+                                                                 size_read=size_read,
+                                                                 files_read=files_read,
+                                                                 only_match=only_match,
+                                                                 no_additional_matches=no_additional_matches)
                 size_read += size_read_run
                 files_read += files_read_run
 
                 if progress:
                     pb.update(1)
+
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
     except OSError as err:
-        LOG.error("❌ cannot find repos file at '%s'", repos_path)
+        LOG.error("❌ cannot find repos file at '%s': %s", repos_path, err)
         exit(1)
 
     print_summary(size_read, files_read)
-   
+
 
 # sideffect: writes to global RESULTS
 def scan(db: hyperscan.Database,
-         path: Path,
+         path: Optional[Path],
          content: bytes,
          patterns: list[Pattern],
          verbose: bool = False,
@@ -585,7 +662,10 @@ def scan(db: hyperscan.Database,
          only_match: bool = False,
          no_additional_matches: bool = False) -> None:
     """Scan content with database. Results are handled in a thread launched by hyperscan (running the `partial` we pass in)."""
-    db.scan(content, partial(report_scan_results, patterns, path, content, verbose, quiet, write_to_results, dry_run, only_match, no_additional_matches))
+    db.scan(
+        content,
+        partial(report_scan_results, patterns, path, content, verbose, quiet, write_to_results, dry_run, only_match,
+                no_additional_matches))
 
 
 def add_args(parser: ArgumentParser) -> None:
@@ -599,16 +679,32 @@ def add_args(parser: ArgumentParser) -> None:
     parser.add_argument("--verbose", "-v", action="store_true", help="Show expected matches")
     parser.add_argument("--quiet", "-q", action="store_true", help="Don't output anything other than exit error codes")
     parser.add_argument("--extra", "-e", required=False, help="Extra directory for running tests over all contents")
-    parser.add_argument("--random", "-r", action="store_true", help="Extra directory for running tests over all contents")
+    parser.add_argument("--random",
+                        "-r",
+                        action="store_true",
+                        help="Extra directory for running tests over all contents")
     parser.add_argument("--progress", "-p", action="store_true", help="Show a progress bar where relevant")
     parser.add_argument("--include", "-i", nargs="*", help="Include these pattern IDs")
     parser.add_argument("--exclude", "-x", nargs="*", help="Exclude these pattern IDs")
     parser.add_argument("--repos", "-R", help="File containing list of repos to clone from GitHub and scan")
-    parser.add_argument("--only-match", "-o", action="store_true", help="Only show the matching pattern part of any results")
+    parser.add_argument("--only-match",
+                        "-o",
+                        action="store_true",
+                        help="Only show the matching pattern part of any results")
     parser.add_argument("--continue-on-fail", "-c", action="store_true", help="Continue if testing patterns fails")
-    parser.add_argument("--no-additional-matches", "-A", action="store_true", help="Do not match using additional matches")
-    parser.add_argument("--no-warn-on-additional-matches-number", "-W", action="store_true", help="Do not warn on more than 5 additional matches")
-    parser.add_argument("--lt-ghes-3-8", "-lt", action="store_true", help="The GHES these will be used on is v <= 3.7, so does not support anchors in additional matches")
+    parser.add_argument("--no-additional-matches",
+                        "-A",
+                        action="store_true",
+                        help="Do not match using additional matches")
+    parser.add_argument("--no-warn-on-additional-matches-number",
+                        "-W",
+                        action="store_true",
+                        help="Do not warn on more than 5 additional matches")
+    parser.add_argument(
+        "--lt-ghes-3-8",
+        "-lt",
+        action="store_true",
+        help="The GHES these will be used on is v <= 3.7, so does not support anchors in additional matches")
     parser.add_argument("--additional-matches-limit", "-a", type=int, default=5, help="Set the matches limit")
 
 
@@ -624,6 +720,8 @@ def check_platform() -> None:
 
 def main() -> None:
     """Main command line entrypoint."""
+    global MATCHES_LIMIT
+
     check_platform()
 
     parser = ArgumentParser(description="Test Secret Scanning Custom Patterns")
@@ -637,21 +735,47 @@ def main() -> None:
 
     MATCHES_LIMIT = args.additional_matches_limit
 
-    if not test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet, no_additional_matches=args.no_additional_matches, no_warn_on_additional_matches_number=args.no_warn_on_additional_matches_number, lt_ghes_3_8=args.lt_ghes_3_8) and not args.continue_on_fail:
+    if not test_patterns(args.tests,
+                         include=args.include,
+                         exclude=args.exclude,
+                         verbose=args.verbose,
+                         quiet=args.quiet,
+                         no_additional_matches=args.no_additional_matches,
+                         no_warn_on_additional_matches_number=args.no_warn_on_additional_matches_number,
+                         lt_ghes_3_8=args.lt_ghes_3_8) and not args.continue_on_fail:
         exit(1)
 
-    db, patterns = build_hyperscan_patterns(args.tests, include=args.include, exclude=args.exclude)
+    db, patterns = build_hyperscan_patterns(args.tests, include=args.include, exclude=args.exclude, quiet=args.quiet)
     if db is None:
         exit(1)
 
     if args.extra is not None:
-        dry_run_patterns(db, patterns, args.extra, verbose=args.verbose, quiet=args.quiet, only_match=args.only_match, no_additional_matches=args.no_additional_matches)
+        dry_run_patterns(db,
+                         patterns,
+                         args.extra,
+                         verbose=args.verbose,
+                         quiet=args.quiet,
+                         only_match=args.only_match,
+                         no_additional_matches=args.no_additional_matches)
 
     if args.random:
-        random_test_patterns(db, patterns, verbose=args.verbose, quiet=args.quiet, progress=args.progress, only_match=args.only_match, no_additional_matches=args.no_additional_matches)
+        random_test_patterns(db,
+                             patterns,
+                             verbose=args.verbose,
+                             quiet=args.quiet,
+                             progress=args.progress,
+                             only_match=args.only_match,
+                             no_additional_matches=args.no_additional_matches)
 
     if args.repos:
-        repo_test_patterns(db, patterns, args.repos, verbose=args.verbose, quiet=args.quiet, progress=args.progress, only_match=args.only_match, no_additional_matches=args.no_additional_matches)
+        repo_test_patterns(db,
+                           patterns,
+                           args.repos,
+                           verbose=args.verbose,
+                           quiet=args.quiet,
+                           progress=args.progress,
+                           only_match=args.only_match,
+                           no_additional_matches=args.no_additional_matches)
 
 
 if __name__ == "__main__":
