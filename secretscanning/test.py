@@ -34,7 +34,8 @@ PATTERNS_FILENAME = "patterns.yml"
 RESULTS: dict[str, list[dict[str, Any]], int] = {}
 PATH_EXCLUDES = ('.git',)
 FILENAME_EXCLUDES = ('README.md', PATTERNS_FILENAME)
-  
+MATCHES_LIMIT = 5
+
 
 def LOCKED_LOG(*args, **kwargs) -> None:
     """Acquire lock then do log message."""
@@ -79,7 +80,7 @@ class Pattern():
             exit(1)
 
 
-def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None) -> list[Pattern]:
+def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None, no_warn_on_additional_matches_number: bool = True, lt_ghes_3_8: bool=False) -> list[Pattern]:
     """Parse patterns found in YAML files."""
     patterns = []
     patterns_file: str = os.path.join(patterns_dir, PATTERNS_FILENAME)
@@ -106,6 +107,16 @@ def parse_patterns(patterns_dir: str, include: Optional[list[str]] = None, exclu
 
             additional_not_matches = regex.get("additional_not_match", [])
             additional_matches = regex.get("additional_match", [])
+
+            if not no_warn_on_additional_matches_number:
+                matches_count = len(additional_not_matches) + len(additional_matches)
+                if matches_count > MATCHES_LIMIT:
+                    LOG.warning("Number of additional matches is greater than the limit for upload in the UI: %s vs %s", matches_count, MATCHES_LIMIT)
+
+            if lt_ghes_3_8:
+                for item in additional_not_matches + additional_matches:
+                    if item.startswith('^') or item.endswith('$'):
+                        LOG.warning("GHES <= 3.7 does not support anchors in additional matches")
 
             expected = pattern.get("expected", [])
 
@@ -285,7 +296,7 @@ def pcre_result_match(pattern: Pattern,
                 print(output)
 
 
-def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None, verbose: bool = False, quiet: bool = False, no_additional_matches: bool = False) -> bool:
+def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude: Optional[list[str]] = None, verbose: bool = False, quiet: bool = False, no_additional_matches: bool = False, no_warn_on_additional_matches_number: bool = False, lt_ghes_3_8: bool = False) -> bool:
     """Run all of the discovered patterns in the given path."""
     global RESULTS
     RESULTS = {}
@@ -305,7 +316,7 @@ def test_patterns(tests_path: str, include: Optional[list[str]] = None, exclude:
             rel_dirpath = Path(dirpath).relative_to(tests_path)
             LOG.debug("Found patterns in %s", rel_dirpath)
 
-            patterns = parse_patterns(dirpath, include=include, exclude=exclude)
+            patterns = parse_patterns(dirpath, include=include, exclude=exclude, no_warn_on_additional_matches_number=no_warn_on_additional_matches_number, lt_ghes_3_8=lt_ghes_3_8)
 
             if len(patterns) == 0:
                 continue
@@ -596,6 +607,9 @@ def add_args(parser: ArgumentParser) -> None:
     parser.add_argument("--only-match", "-o", action="store_true", help="Only show the matching pattern part of any results")
     parser.add_argument("--continue-on-fail", "-c", action="store_true", help="Continue if testing patterns fails")
     parser.add_argument("--no-additional-matches", "-A", action="store_true", help="Do not match using additional matches")
+    parser.add_argument("--no-warn-on-additional-matches-number", "-W", action="store_true", help="Do not warn on more than 5 additional matches")
+    parser.add_argument("--lt-ghes-3-8", "-lt", action="store_true", help="The GHES these will be used on is v <= 3.7, so does not support anchors in additional matches")
+    parser.add_argument("--additional-matches-limit", "-a", type=int, default=5, help="Set the matches limit")
 
 
 def check_platform() -> None:
@@ -621,7 +635,9 @@ def main() -> None:
     if args.debug:
         LOG.setLevel(logging.DEBUG)
 
-    if not test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet, no_additional_matches=args.no_additional_matches) and not args.continue_on_fail:
+    MATCHES_LIMIT = args.additional_matches_limit
+
+    if not test_patterns(args.tests, include=args.include, exclude=args.exclude, verbose=args.verbose, quiet=args.quiet, no_additional_matches=args.no_additional_matches, no_warn_on_additional_matches_number=args.no_warn_on_additional_matches_number, lt_ghes_3_8=args.lt_ghes_3_8) and not args.continue_on_fail:
         exit(1)
 
     db, patterns = build_hyperscan_patterns(args.tests, include=args.include, exclude=args.exclude)
