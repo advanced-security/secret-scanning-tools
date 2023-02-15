@@ -50,8 +50,8 @@ class Pattern():
     default_end = r'\z|[^0-9A-Za-z]'
 
     def __init__(self, name: str, _type: str, description: str, start: str, pattern: str, end: str,
-                 additional_matches: list[str], additional_not_matches: list[str], expected: list[dict[str,
-                     Any]], test_data: dict[str, Union[str|int]]) -> None:
+                 additional_matches: list[str], additional_not_matches: list[str], expected: list[dict[str, Any]],
+                 test_data: dict[str, Union[str | int]]) -> None:
         self.name = name.strip() if name is not None else None
         self.type = _type.strip() if _type is not None else None
         self.description = description.strip() if description is not None else None
@@ -70,8 +70,8 @@ class Pattern():
             self.test_data['end_offset'] = self.test_data.get('end_offset', -1)
 
             if self.test_data['end_offset'] == -1:
-                self.test_data['end_offset'] = len(self.test_data['data'])
-        self.test_data['name'] = self.type
+                self.test_data['end_offset'] = len(str(self.test_data['data']))
+        self.test_data['name'] = None
 
     def regex_string(self) -> bytes:
         """Concatenate and UTF-8 encode."""
@@ -188,7 +188,7 @@ def hs_compile(db: hyperscan.Database,
 
 # sideffect: writes to global RESULT
 # context: run in a thread by hyperscan
-def report_scan_results(patterns: list[Pattern], path: Path, content: bytes, verbose: bool, quiet: bool,
+def report_scan_results(patterns: list[Pattern], path: Optional[Path], content: bytes, verbose: bool, quiet: bool,
                         write_to_results: bool, dry_run: bool, only_match: bool, no_additional_matches: bool,
                         rule_id: int, start_offset: int, end_offset: int, flags: int, context: Optional[Any]) -> None:
     """Hyperscan callback."""
@@ -232,7 +232,7 @@ def path_offsets_match(first: dict[str, Any], second: dict[str, Any]) -> bool:
 # sideffect: writes to global RESULTS
 # content: run in a thread by hyperscan
 def pcre_result_match(pattern: Pattern,
-                      path: Path,
+                      path: Optional[Path],
                       content: bytes,
                       start_offset: int,
                       end_offset: int,
@@ -280,7 +280,7 @@ def pcre_result_match(pattern: Pattern,
                 exit(1)
 
         file_details = {
-            'name': getattr(path, 'name', str(path)),
+            'name': getattr(path, 'name', path),
             'start_offset': start_offset + len(m.group('start')),
             'end_offset': end_offset - len(m.group('end'))
         }
@@ -363,42 +363,36 @@ def test_patterns(tests_path: str,
                     if 'data' in pattern.test_data and 'start_offset' in pattern.test_data and 'end_offset' in pattern.test_data:
                         if not hs_compile(db, [pattern.regex_string()], labels=[pattern.type]):
                             if not quiet:
-                                LOG.error("❌ hyperscan pattern compilation error in '%s' for '%s'", rel_dirpath, pattern.type)
+                                LOG.error("❌ hyperscan pattern compilation error in '%s' for '%s'", rel_dirpath,
+                                          pattern.type)
                                 exit(1)
 
-                        ok = True
+                        ok_test: bool = True
 
-                        content = pattern.test_data.get('data').encode('utf-8')
+                        content = str(pattern.test_data.get('data')).encode('utf-8')
 
                         # reset global before calling hyperscan
                         RESULTS = {}
-                        
+
                         # sideffect: writes to global RESULTS
                         scan(db,
-                             pattern.type,
-                             content,
-                             [pattern],
-                             dry_run=False, # so it treats 'path' as a string
+                             None,
+                             content, [pattern],
+                             dry_run=False,
                              verbose=verbose,
                              quiet=quiet,
                              no_additional_matches=no_additional_matches)
 
-
                         pattern_results = RESULTS.get(pattern.name, [])
 
-                        LOG.debug("Results:")
-                        LOG.debug(pattern_results)
-
-                        LOG.debug("Expected:")
-                        LOG.debug((pattern.test_data.get("start_offset"), pattern.test_data.get("end_offset")))
-
                         if len(pattern_results) > 1:
-                            ok = False
+                            ok_test = False
                         else:
                             # did we match what we expected?
                             result = pattern_results[0]
                             if not path_offsets_match(pattern.test_data, result.get('file', {})):
-                                ok = False
+                                LOG.error("❌ did not match test data for '%s': '%s':%d-%d ", pattern.type, pattern.test_data['data'], pattern.test_data['start_offset'], pattern.test_data['end_offset'])
+                                ok_test = False
 
                         # did we match anything unexpected?
                         if any([
@@ -407,9 +401,14 @@ def test_patterns(tests_path: str,
                         ]):
                             if not quiet:
                                 LOG.error("❌ matched unexpected test data results for: '%s'", pattern.type)
-                            ok = False
+                            if verbose:
+                                for result in pattern_results:
+                                    result_data = result.get('file', {})
+                                    if not path_offsets_match(pattern.test_data, result_data): 
+                                        LOG.info("Matched on '%s':%d-%d", content[result_data.get('start_offset', 0):result_data.get('end_offset', 0)], result_data.get('start_offset', -1), result_data.get('end_offset', -1))
+                            ok_test = False
 
-                        if not ok:
+                        if not ok_test:
                             ret = False
 
                     else:
@@ -437,8 +436,8 @@ def test_patterns(tests_path: str,
                          verbose=verbose,
                          quiet=quiet,
                          no_additional_matches=no_additional_matches)
-
-            # threads should all exit before here, so we don't need to use LOCK
+            
+            # threads should all exit before here, so we don't use LOCK
             for pattern in patterns:
                 # did we match everything we expected?
                 ok: bool = True
@@ -483,7 +482,10 @@ def test_patterns(tests_path: str,
 
                 else:
                     if not quiet:
-                        LOG.info("ℹ️  '%s' in '%s': no expected patterns defined", pattern.type, rel_dirpath)
+                        if pattern.test_data != {}:
+                            LOG.info("✅ '%s' in '%s'", pattern.type, rel_dirpath)
+                        else:
+                            LOG.info("ℹ️  '%s' in '%s': no test data or expected file results defined", pattern.type, rel_dirpath)
 
     if not found_patterns:
         LOG.error("❌ Failed to find any patterns in %s", str(tests_path))
