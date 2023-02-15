@@ -51,7 +51,7 @@ class Pattern():
 
     def __init__(self, name: str, _type: str, description: str, start: str, pattern: str, end: str,
                  additional_matches: list[str], additional_not_matches: list[str], expected: list[dict[str,
-                                                                                                       Any]]) -> None:
+                     Any]], test_data: dict[str, Union[str|int]]) -> None:
         self.name = name.strip() if name is not None else None
         self.type = _type.strip() if _type is not None else None
         self.description = description.strip() if description is not None else None
@@ -62,8 +62,16 @@ class Pattern():
                                       ] if additional_not_matches is not None else []
         self.additional_matches = [add_match.strip() for add_match in additional_matches
                                   ] if additional_matches is not None else []
-
         self.expected = expected
+
+        self.test_data = test_data
+        if 'data' in self.test_data:
+            self.test_data['start_offset'] = self.test_data.get('start_offset', 0)
+            self.test_data['end_offset'] = self.test_data.get('end_offset', -1)
+
+            if self.test_data['end_offset'] == -1:
+                self.test_data['end_offset'] = len(self.test_data['data'])
+        self.test_data['name'] = self.type
 
     def regex_string(self) -> bytes:
         """Concatenate and UTF-8 encode."""
@@ -128,9 +136,11 @@ def parse_patterns(patterns_dir: str,
 
             expected = pattern.get("expected", [])
 
+            test_data = pattern.get("test", {})
+
             patterns.append(
                 Pattern(name, _type, description, regex.get('start'), regex.get('pattern'), regex.get('end'),
-                        additional_matches, additional_not_matches, expected))
+                        additional_matches, additional_not_matches, expected, test_data))
 
     return patterns
 
@@ -270,7 +280,7 @@ def pcre_result_match(pattern: Pattern,
                 exit(1)
 
         file_details = {
-            'name': path.name if not dry_run else str(path),
+            'name': getattr(path, 'name', str(path)),
             'start_offset': start_offset + len(m.group('start')),
             'end_offset': end_offset - len(m.group('end'))
         }
@@ -281,13 +291,13 @@ def pcre_result_match(pattern: Pattern,
                     LOCKED_LOG(logging.ERROR if pattern.expected else logging.INFO,
                                "%s result '%s' for '%s' in path '%s'; %s:%d-%d",
                                "❌ unexpected" if pattern.expected else "ℹ️  found", parts['pattern'], pattern.name,
-                               path.parent, file_details['name'], file_details['start_offset'],
+                               getattr(path, 'parent', 'N/A'), file_details['name'], file_details['start_offset'],
                                file_details['end_offset'])
             else:
                 if not quiet or LOG.level == logging.DEBUG:
                     LOCKED_LOG(logging.INFO if verbose else logging.DEBUG,
                                "✅ expected result '%s' for '%s' in path '%s'; %s:%d-%d", parts['pattern'], pattern.name,
-                               path.parent, file_details['name'], file_details['start_offset'],
+                               getattr(path, 'parent', 'N/A'), file_details['name'], file_details['start_offset'],
                                file_details['end_offset'])
 
         if write_to_results:
@@ -347,11 +357,73 @@ def test_patterns(tests_path: str,
 
             found_patterns = True
 
+            # test the 'test' key (if it exists) and see if the data exists at the expected start/end offset
+            for pattern in patterns:
+                if pattern.test_data:
+                    if 'data' in pattern.test_data and 'start_offset' in pattern.test_data and 'end_offset' in pattern.test_data:
+                        if not hs_compile(db, [pattern.regex_string()], labels=[pattern.type]):
+                            if not quiet:
+                                LOG.error("❌ hyperscan pattern compilation error in '%s' for '%s'", rel_dirpath, pattern.type)
+                                exit(1)
+
+                        ok = True
+
+                        content = pattern.test_data.get('data').encode('utf-8')
+
+                        # reset global before calling hyperscan
+                        RESULTS = {}
+                        
+                        # sideffect: writes to global RESULTS
+                        scan(db,
+                             pattern.type,
+                             content,
+                             [pattern],
+                             dry_run=False, # so it treats 'path' as a string
+                             verbose=verbose,
+                             quiet=quiet,
+                             no_additional_matches=no_additional_matches)
+
+
+                        pattern_results = RESULTS.get(pattern.name, [])
+
+                        LOG.debug("Results:")
+                        LOG.debug(pattern_results)
+
+                        LOG.debug("Expected:")
+                        LOG.debug((pattern.test_data.get("start_offset"), pattern.test_data.get("end_offset")))
+
+                        if len(pattern_results) > 1:
+                            ok = False
+                        else:
+                            # did we match what we expected?
+                            result = pattern_results[0]
+                            if not path_offsets_match(pattern.test_data, result.get('file', {})):
+                                ok = False
+
+                        # did we match anything unexpected?
+                        if any([
+                                not path_offsets_match(pattern.test_data, result.get('file', {}))
+                                for result in pattern_results
+                        ]):
+                            if not quiet:
+                                LOG.error("❌ matched unexpected test data results for: '%s'", pattern.type)
+                            ok = False
+
+                        if not ok:
+                            ret = False
+
+                    else:
+                        continue
+
+            # reset global
+            RESULTS = {}
+
             if not hs_compile(db, [pattern.regex_string() for pattern in patterns],
                               labels=[pattern.type for pattern in patterns]):
                 if not quiet:
                     LOG.error("❌ hyperscan pattern compilation error in '%s'", rel_dirpath)
                     exit(1)
+
             for filename in [f for f in filenames if f not in FILENAME_EXCLUDES]:
                 path = (Path(dirpath) / filename).relative_to(tests_path)
                 with (Path(tests_path) / path).resolve().open("rb") as f:
