@@ -50,7 +50,7 @@ def main() -> None:
                     if 'patterns' in data:
                         patterns.append(data['patterns'])
 
-    print(json.dump({'name': 'Collection of custom patterns', 'patterns': patterns}))
+    print(json.dumps({'name': 'Collection of custom patterns', 'patterns': patterns}))
 
 
 if __name__ == "__main__":
