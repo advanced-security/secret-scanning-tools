@@ -44,9 +44,12 @@ def main() -> None:
 
                 with open(str(Path(root) / filename), "r") as f:
                     # read in YAML
-                    patterns.append(yaml.safe_load(f))
+                    data = yaml.safe_load(f)
 
-    print(yaml.dump(patterns))
+                    if 'patterns' in data:
+                        patterns.append(data['patterns'])
+
+    print(yaml.dump({'name': 'Collection of custom patterns', 'patterns': patterns}))
 
 
 if __name__ == "__main__":
