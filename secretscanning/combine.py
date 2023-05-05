@@ -6,6 +6,7 @@ config files into one for eaasy upload using the Field browser extension
 """
 
 import yaml
+import json
 import logging
 import os
 import argparse
@@ -49,7 +50,7 @@ def main() -> None:
                     if 'patterns' in data:
                         patterns.append(data['patterns'])
 
-    print(yaml.dump({'name': 'Collection of custom patterns', 'patterns': patterns}))
+    print(json.dump({'name': 'Collection of custom patterns', 'patterns': patterns}))
 
 
 if __name__ == "__main__":
