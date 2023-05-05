@@ -36,7 +36,7 @@ def main() -> None:
     if args.debug:
         LOG.setLevel(logging.DEBUG)
 
-    patterns: []
+    patterns = []
 
     # find patterns.yml in directory by walking it
     for root, dirs, filenames in os.walk(args.input_dir):
