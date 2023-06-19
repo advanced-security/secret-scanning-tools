@@ -267,16 +267,28 @@ def pcre_result_match(pattern: Pattern,
         if not no_additional_matches:
             try:
                 if pattern.additional_matches:
-                    if not all([pcre.compile(pat).match(m.group('pattern')) for pat in pattern.additional_matches]):
+                    if not all([pcre.compile(pat).search(m.group('pattern')) for pat in pattern.additional_matches]):
                         LOCKED_LOG(logging.DEBUG, "One of the required additional pattern matches did not hold")
                         return
 
                 if pattern.additional_not_matches:
-                    if any([pcre.compile(pat).match(m.group('pattern')) for pat in pattern.additional_not_matches]):
+                    if any([pcre.compile(pat).search(m.group('pattern')) for pat in pattern.additional_not_matches]):
                         LOCKED_LOG(logging.DEBUG, "One of the additional NOT pattern matches held")
                         return
             except pcre.PCREError as err:
-                LOG.error("Cannot compile one of the additional/not match regex for '%s': %s", pattern.name, err)
+                LOCKED_LOG(logging.ERROR, "Cannot compile one of the additional/not match regex for '%s'", pattern.name)
+                if pattern.additional_matches:
+                    for i, pat in enumerate(pattern.additional_matches):
+                        try:
+                            pcre.compile(pat).search(m.group('pattern'))
+                        except pcre.PCREError as err:
+                            LOCKED_LOG(logging.ERROR, "Error in additional match %d: %s: %s", i, pat, err)
+                if pattern.additional_not_matches:
+                    for i, pat in enumerate(pattern.additional_not_matches):
+                        try:
+                            pcre.compile(pat).search(m.group('pattern'))
+                        except pcre.PCREError as err:
+                            LOCKED_LOG(logging.ERROR, "Error in additional NOT match %d: %s: %s", i, pat, err)
                 exit(1)
 
         file_details = {
