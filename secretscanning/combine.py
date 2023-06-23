@@ -6,8 +6,10 @@ config files into one for eaasy upload using the Field browser extension
 """
 
 import yaml
+import json
 import logging
 import os
+import sys
 import argparse
 from pathlib import Path
 from typing import Any
@@ -34,22 +36,23 @@ def main() -> None:
     if args.debug:
         LOG.setLevel(logging.DEBUG)
 
-    patterns: list[Any] = []
+    patterns = []
 
     # find patterns.yml in directory by walking it
     for root, dirs, filenames in os.walk(args.input_dir):
         for filename in filenames:
             if filename == "patterns.yml":
-                print(f"{root}/{filename}")
+                print(f"{root}/{filename}", file=sys.stderr)
 
                 with open(str(Path(root) / filename), "r") as f:
                     # read in YAML
                     data = yaml.safe_load(f)
 
                     if 'patterns' in data:
-                        patterns.append(data['patterns'])
+                        patterns.extend(data['patterns'])
 
     print(yaml.dump({'name': 'Collection of custom patterns', 'patterns': patterns}))
+#    print(json.dumps({'name': 'Collection of custom patterns', 'patterns': patterns}))
 
 
 if __name__ == "__main__":
