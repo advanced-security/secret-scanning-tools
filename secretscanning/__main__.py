@@ -28,6 +28,9 @@ parser.add_argument(
 parser.add_argument(
     "--github-token", default=os.environ.get("GITHUB_TOKEN"), help="GitHub token to use"
 )
+parser.add_argument(
+    "--no-github", action="store_true", help="Do not connect to GitHub, do not require a repository or token"
+)
 
 parser_modes = parser.add_argument_group("modes")
 parser_modes.add_argument("--all", action="store_true")
@@ -60,6 +63,10 @@ if __name__ == "__main__":
     if os.path.isfile(path):
         path = os.path.dirname(path)
 
+    if not arguments.no_github and (arguments.github_repository is None or "/" not in arguments.github_repository):
+        logging.error("GitHub repository should be set with --github-repository, in the <org>/<repo> format")
+        sys.exit(0)
+
     owner, repo = arguments.github_repository.split("/")
 
     configs: Dict[str, PatternsConfig] = loadPatternFiles(path)
@@ -85,40 +92,41 @@ if __name__ == "__main__":
             )
             continue
 
-        for pattern in pattern_config.patterns:
-            logging.info(f"Checking {pattern.name}")
+        if not arguments.no_github:
+            for pattern in pattern_config.patterns:
+                logging.info(f"Checking {pattern.name}")
 
-            snapshot_dir = f"{pattern_path}/__snapshots__"
-            if not os.path.exists(snapshot_dir):
-                os.mkdir(snapshot_dir)
+                snapshot_dir = f"{pattern_path}/__snapshots__"
+                if not os.path.exists(snapshot_dir):
+                    os.mkdir(snapshot_dir)
 
-            snapshot_path = f"{snapshot_dir}/{pattern.type}.csv"
+                snapshot_path = f"{snapshot_dir}/{pattern.type}.csv"
 
-            results = getSecretScanningResults(
-                owner,
-                repo,
-                arguments.github_token,
-                pattern.type,
-            )
-            logging.info(f"Found secrets :: {len(results)}")
+                results = getSecretScanningResults(
+                    owner,
+                    repo,
+                    arguments.github_token,
+                    pattern.type,
+                )
+                logging.info(f"Found secrets :: {len(results)}")
 
-            if arguments.snapshot:
-                logging.info(f"Creating snapshot for {pattern.name} in {pattern_path}")
-                createSnapshot(snapshot_path, results)
-            else:
-                logging.debug(f"Creating current snapshot for {pattern.name}")
-                current_snapshot = snapshot_path.replace(".csv", "-current.csv")
-                createSnapshot(current_snapshot, results)
-
-                diff = compareSnapshots(snapshot_path, current_snapshot)
-                if len(diff) > 0:
-                    logging.info(f"Found differences")
-                    for line in diff:
-                        print(line)
-                    errors.append(f"{pattern.name}")
+                if arguments.snapshot:
+                    logging.info(f"Creating snapshot for {pattern.name} in {pattern_path}")
+                    createSnapshot(snapshot_path, results)
                 else:
-                    logging.info(f"No differences found")
-                    os.remove(current_snapshot)
+                    logging.debug(f"Creating current snapshot for {pattern.name}")
+                    current_snapshot = snapshot_path.replace(".csv", "-current.csv")
+                    createSnapshot(current_snapshot, results)
+
+                    diff = compareSnapshots(snapshot_path, current_snapshot)
+                    if len(diff) > 0:
+                        logging.info(f"Found differences")
+                        for line in diff:
+                            print(line)
+                        errors.append(f"{pattern.name}")
+                    else:
+                        logging.info(f"No differences found")
+                        os.remove(current_snapshot)
 
     if arguments.markdown:
         createMarkdown(
