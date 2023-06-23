@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
@@ -30,23 +31,52 @@ class Regex:
 
 
 @dataclass
+class Test:
+    data: Optional[str] = None
+    start_offset: Optional[int] = None
+    end_offset: Optional[int] = None
+
+    def __post_init__(self):
+        if self.start_offset is not None and self.start_offset < -1:
+            raise ValueError("The start offset should be zero, positive, or -1 (the end of the data)")
+
+        if self.end_offset is not None and (self.end_offset == 0 or self.end_offset < -1):
+            raise ValueError("The expected end offset should be positive, or -1 (the end of the data)")
+
+
+@dataclass
+class Expected:
+    name: str
+    start_offset: Optional[int] = None
+    end_offset: Optional[int] = None
+
+    def __post_init__(self):
+        if self.start_offset is not None and self.start_offset < -1:
+            raise ValueError("The start offset should be zero, positive, or -1 (the end of the data)")
+
+        if self.end_offset is not None and (self.end_offset == 0 or self.end_offset < -1):
+            raise ValueError("The expected end offset should be positive, or -1 (the end of the data)")
+
+
+@dataclass
 class Pattern:
     """A pattern to match against a file."""
 
     name: str
     description: Optional[str] = None
     experimental: bool = False
-
     regex: Regex = field(default_factory=Regex)
-
-    expected: Optional[List[Dict[str, str]]] = None
-
+    test: Optional[Test] = field(default_factory=Test) 
+    expected: Optional[List[Expected]] = field(default_factory=list)
     type: Optional[str] = None
     comments: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         if isinstance(self.regex, dict):
             self.regex = Regex(**self.regex)
+        if isinstance(self.test, dict):
+            self.test = Test(**self.test)
+        self.expected = [Expected(**expected) for expected in self.expected if isinstance(expected, dict)]
 
 
 @dataclass
@@ -64,7 +94,11 @@ class PatternsConfig:
         self.patterns = []
 
         for pattern in _tmp:
-            self.patterns.append(Pattern(**pattern))
+            try:
+                self.patterns.append(Pattern(**pattern))
+            except Exception as err:
+                logging.error("Failed to validate pattern: %s", err)
+                logging.error("%s", yaml.dump(pattern))
 
 
 @dataclass
