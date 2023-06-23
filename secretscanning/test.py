@@ -389,8 +389,7 @@ def test_patterns(tests_path: str,
                             ok_test = False
                         else:
                             # did we match what we expected?
-                            result = pattern_results[0]
-                            if not path_offsets_match(pattern.test_data, result.get('file', {})):
+                            if len(pattern_results) == 0 or not path_offsets_match(pattern.test_data, pattern_results[0].get('file', {})):
                                 LOG.error("❌ did not match test data for '%s': '%s':%d-%d ", pattern.type, pattern.test_data['data'], pattern.test_data['start_offset'], pattern.test_data['end_offset'])
                                 ok_test = False
 
