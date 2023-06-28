@@ -1,13 +1,37 @@
-# custom-pattern-secrets
+# secret-scanning-tools
 
-Custom Secret Scanning Patterns repository created and maintained by the GitHub Field Services.
+Testing Suite for GitHub Secret Scanning Custom Patterns
 
-This repository extends the [list of supported Vendors out of the box](https://docs.github.com/en/enterprise-cloud@latest/code-security/secret-scanning/secret-scanning-patterns) with GitHub's Advanced Security Secret Scanning.
+## Usage
 
-> :warning: This repository does not guarantee the quality or precision of the patterns which might result in False Positives
+```yaml
+- name: Secret Scanning Test Suite
+  uses: advanced-security/secret-scanning-tools@main
+```
 
+**Advanced Configurations:**
 
-### [Configuration Secrets](./examples/config)
+```yaml
+- name: Secret Scanning Test Suite
+  uses: advanced-security/secret-scanning-tools@main
+  with:
+    # Modes to run
+    # > 'validate' (default), 'all', 'snapshot', 'markdown'
+    mode: 'validate'
+```
 
-- Django Secret Key
+**Using GitHub App Token:**
 
+```yaml
+- name: Get Token
+  id: get_workflow_token
+  uses: peter-murray/workflow-application-token-action@v1
+  with:
+    application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
+    application_private_key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
+
+- name: Secret Scanning Test Suite
+  uses: advanced-security/secret-scanning-tools@main
+  with:
+    token: ${{ steps.get_workflow_token.outputs.token }}
+```
