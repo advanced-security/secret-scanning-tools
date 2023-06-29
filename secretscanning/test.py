@@ -267,16 +267,28 @@ def pcre_result_match(pattern: Pattern,
         if not no_additional_matches:
             try:
                 if pattern.additional_matches:
-                    if not all([pcre.compile(pat).match(m.group('pattern')) for pat in pattern.additional_matches]):
+                    if not all([pcre.compile(pat).search(m.group('pattern')) for pat in pattern.additional_matches]):
                         LOCKED_LOG(logging.DEBUG, "One of the required additional pattern matches did not hold")
                         return
 
                 if pattern.additional_not_matches:
-                    if any([pcre.compile(pat).match(m.group('pattern')) for pat in pattern.additional_not_matches]):
+                    if any([pcre.compile(pat).search(m.group('pattern')) for pat in pattern.additional_not_matches]):
                         LOCKED_LOG(logging.DEBUG, "One of the additional NOT pattern matches held")
                         return
             except pcre.PCREError as err:
-                LOG.error("Cannot compile one of the additional/not match regex for '%s': %s", pattern.name, err)
+                LOCKED_LOG(logging.ERROR, "Cannot compile one of the additional/not match regex for '%s'", pattern.name)
+                if pattern.additional_matches:
+                    for i, pat in enumerate(pattern.additional_matches):
+                        try:
+                            pcre.compile(pat).search(m.group('pattern'))
+                        except pcre.PCREError as err:
+                            LOCKED_LOG(logging.ERROR, "Error in additional match %d: %s: %s", i, pat, err)
+                if pattern.additional_not_matches:
+                    for i, pat in enumerate(pattern.additional_not_matches):
+                        try:
+                            pcre.compile(pat).search(m.group('pattern'))
+                        except pcre.PCREError as err:
+                            LOCKED_LOG(logging.ERROR, "Error in additional NOT match %d: %s: %s", i, pat, err)
                 exit(1)
 
         file_details = {
@@ -329,7 +341,9 @@ def test_patterns(tests_path: str,
                   lt_ghes_3_8: bool = False) -> bool:
     """Run all of the discovered patterns in the given path."""
     global RESULTS
-    RESULTS = {}
+
+    with LOCK:
+        RESULTS = {}
 
     found_patterns: bool = False
     ret: bool = True
@@ -389,8 +403,7 @@ def test_patterns(tests_path: str,
                             ok_test = False
                         else:
                             # did we match what we expected?
-                            result = pattern_results[0]
-                            if not path_offsets_match(pattern.test_data, result.get('file', {})):
+                            if len(pattern_results) == 0 or not path_offsets_match(pattern.test_data, pattern_results[0].get('file', {})):
                                 LOG.error("❌ did not match test data for '%s': '%s':%d-%d ", pattern.type, pattern.test_data['data'], pattern.test_data['start_offset'], pattern.test_data['end_offset'])
                                 ok_test = False
 
@@ -415,7 +428,8 @@ def test_patterns(tests_path: str,
                         continue
 
             # reset global
-            RESULTS = {}
+            with LOCK:
+                RESULTS = {}
 
             if not hs_compile(db, [pattern.regex_string() for pattern in patterns],
                               labels=[pattern.type for pattern in patterns]):
@@ -436,17 +450,41 @@ def test_patterns(tests_path: str,
                          verbose=verbose,
                          quiet=quiet,
                          no_additional_matches=no_additional_matches)
-            
-            # threads should all exit before here, so we don't use LOCK
-            for pattern in patterns:
-                # did we match everything we expected?
-                ok: bool = True
+          
+            # make sure lock is released by workers before we go on
+            with LOCK:
+                for pattern in patterns:
+                    # did we match everything we expected?
+                    ok: bool = True
 
-                if pattern.expected:
-                    for expected in pattern.expected:
-                        pattern_results = RESULTS.get(pattern.name, [])
-                        if not any([path_offsets_match(expected, result.get('file', {})) for result in pattern_results
-                                   ]):
+                    if pattern.expected:
+                        for expected in pattern.expected:
+                            pattern_results = RESULTS.get(pattern.name, [])
+                            if not any([path_offsets_match(expected, result.get('file', {})) for result in pattern_results
+                                       ]):
+                                if not quiet:
+                                    try:
+                                        with (Path(dirpath) / expected.get('name', '')).resolve().open("rb") as f:
+                                            content = f.read()
+                                            LOG.error(
+                                                "❌ unmatched expected location for: '%s'; %s:%d-%d; %s", pattern.type,
+                                                expected.get('name'), expected.get('start_offset'),
+                                                expected.get('end_offset'),
+                                                content[expected.get('start_offset', 0):expected.get('end_offset', 0)])
+                                    except OSError as err:
+                                        LOG.error(
+                                            "❌ unmatched expected location for: '%s'; %s:%d-%d; could not open/read file: %s",
+                                            pattern.type, expected.get('name'), expected.get('start_offset'),
+                                            expected.get('end_offset'), err)
+                                ok = False
+
+                        # did we match anything unexpected?
+                        if any([
+                                not any(
+                                    [path_offsets_match(expected, result.get('file', {}))
+                                     for expected in pattern.expected])
+                                for result in pattern_results
+                        ]):
                             if not quiet:
                                 for result in pattern_results:
                                     if not path_offsets_match(expected, result.get('file', {})):
@@ -467,29 +505,18 @@ def test_patterns(tests_path: str,
 
                             ok = False
 
-                    # did we match anything unexpected?
-                    if any([
-                            not any(
-                                [path_offsets_match(expected, result.get('file', {}))
-                                 for expected in pattern.expected])
-                            for result in pattern_results
-                    ]):
-                        if not quiet:
-                            LOG.error("❌ matched unexpected results for: '%s'", pattern.type)
-                        ok = False
-
-                    if ok and not quiet:
-                        LOG.info("✅ '%s' in '%s'", pattern.type, rel_dirpath)
-
-                    if not ok:
-                        ret = False
-
-                else:
-                    if not quiet:
-                        if pattern.test_data != {}:
+                        if ok and not quiet:
                             LOG.info("✅ '%s' in '%s'", pattern.type, rel_dirpath)
-                        else:
-                            LOG.info("ℹ️  '%s' in '%s': no test data or expected file results defined", pattern.type, rel_dirpath)
+
+                        if not ok:
+                            ret = False
+
+                    else:
+                        if not quiet:
+                            if pattern.test_data != {}:
+                                LOG.info("✅ '%s' in '%s'", pattern.type, rel_dirpath)
+                            else:
+                                LOG.info("ℹ️  '%s' in '%s': no test data or expected file results defined", pattern.type, rel_dirpath)
 
     if not found_patterns:
         LOG.error("❌ Failed to find any patterns in %s", str(tests_path))
