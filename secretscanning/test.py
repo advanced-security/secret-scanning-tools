@@ -285,7 +285,7 @@ def pcre_result_match(pattern: Pattern,
             'end_offset': end_offset - len(m.group('end'))
         }
 
-        if not dry_run and not and not file_details['name'] is None:
+        if not dry_run and not file_details['name'] is None:
             if not any([path_offsets_match(file_details, loc) for loc in pattern.expected]):
                 if not quiet:
                     LOCKED_LOG(logging.ERROR if pattern.expected else logging.INFO,
