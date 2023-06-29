@@ -32,7 +32,7 @@ LOG = logging.getLogger(__name__)
 LOCK = Lock()
 PATTERNS_FILENAME = "patterns.yml"
 RESULTS: dict[str, list[dict[str, Any]]] = {}
-PATH_EXCLUDES = ('.git',)
+PATH_EXCLUDES: set = set()
 FILENAME_EXCLUDES = ('README.md', PATTERNS_FILENAME)
 MATCHES_LIMIT = 5
 
@@ -64,14 +64,14 @@ class Pattern():
                                   ] if additional_matches is not None else []
         self.expected = expected
 
-        self.test_data = test_data
+        self.test_data = test_data if test_data is not None else {}
         if 'data' in self.test_data:
             self.test_data['start_offset'] = self.test_data.get('start_offset', 0)
             self.test_data['end_offset'] = self.test_data.get('end_offset', -1)
 
             if self.test_data['end_offset'] == -1:
                 self.test_data['end_offset'] = len(str(self.test_data['data']))
-        self.test_data['name'] = None
+            self.test_data['name'] = None
 
     def regex_string(self) -> bytes:
         """Concatenate and UTF-8 encode."""
@@ -491,11 +491,12 @@ def test_patterns(tests_path: str,
                                         try:
                                             with (Path(dirpath) / expected.get('name', '')).resolve().open("rb") as f:
                                                 content = f.read()
+                                                file = result.get('file')
                                                 LOG.error(
                                                         "❌ matched unexpected results for: '%s'; %s:%d-%d; %s", pattern.type,
-                                                        result.get('file'), result.get('start_offset'),
-                                                        result.get('end_offset'),
-                                                        content[result.get('start_offset', 0):result.get('end_offset', 0)])
+                                                        file.get('name'), file.get('start_offset'),
+                                                        file.get('end_offset'),
+                                                        content[file.get('start_offset', 0):file.get('end_offset', 0)])
                                         except OSError as err:
                                                 LOG.error(
                                                     "❌ matched unexpected location for: '%s'; %s:%d-%d; could not open/read file: %s",
@@ -810,6 +811,7 @@ def add_args(parser: ArgumentParser) -> None:
         action="store_true",
         help="The GHES these will be used on is v <= 3.7, so does not support anchors in additional matches")
     parser.add_argument("--additional-matches-limit", "-a", type=int, default=5, help="Set the matches limit")
+    parser.add_argument("--scan-dot-git", "-g", action="store_true", help="Do scan .git directories")
 
 
 def check_platform() -> None:
@@ -838,6 +840,9 @@ def main() -> None:
         LOG.setLevel(logging.DEBUG)
 
     MATCHES_LIMIT = args.additional_matches_limit
+
+    if not args.scan_dot_git:
+        PATH_EXCLUDES.add('.git')
 
     if not test_patterns(args.tests,
                          include=args.include,
