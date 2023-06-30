@@ -613,7 +613,7 @@ def scan_git_with_patterns(db: hyperscan.Database,
              only_match=only_match,
              no_additional_matches=no_additional_matches)
 
-    scan_repo(path, callback)
+    read_git.scan_repo(path, callback)
 
     if not quiet:
         print_summary(size_read, files_read)
@@ -769,6 +769,8 @@ def repo_test_patterns(db: hyperscan.Database,
                 try:
                     if ':' in repo_name:
                         repo_url = repo_name
+                        repo_path_parts = repo_url.split('/')
+                        repo_path = clone_path / repo_path_parts[-2] / repo_path_parts[-1]
                     else:
                         repo_tuple = repo_name.split('/')
                         repo_path = clone_path / repo_tuple[0] / repo_tuple[1]
