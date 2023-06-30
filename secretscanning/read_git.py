@@ -18,6 +18,16 @@ def add_args(parser) -> None:
     parser.add_argument("directory", help="Directory that uses git (not the .git directory itself)")
 
 
+def robust_decode(byte_string: bytes) -> str:
+    """Robustly decode bytes as text encodings."""
+    for encoding in ('utf-8', 'win-1252', 'iso-8859-1', 'ascii'):
+        try:
+            return byte_string.decode(encoding)
+        except Exception:
+            continue
+    raise ValueError("No suitable decoding for %s", byte_string)
+
+
 def scan_repo(repo_name: str, callback: Callable) -> None:
     """Scan a git repository for commits and blobs, and call the callback for each one."""
     try:
@@ -48,6 +58,8 @@ def scan_repo(repo_name: str, callback: Callable) -> None:
             branch = repo.lookup_branch(branch_name)
             ref = repo.lookup_reference(branch.name)
             repo.checkout(ref)
+
+            branch_name = robust_decode(branch_name)
 
             # walk the branch
             for commit in repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL):
@@ -84,9 +96,10 @@ def scan_repo(repo_name: str, callback: Callable) -> None:
                 else:
                     for obj in commit.tree:
                         LOG.debug("%s: %s", obj.name, obj.oid)
-                        LOG.debug(obj.data)
-                        if callback is not None:
-                            callback(branch_name, obj.name, obj.oid, obj.data)
+                        if hasattr(obj, 'data'):
+                            LOG.debug(obj.data)
+                            if callback is not None:
+                                callback(branch_name, obj.name, obj.oid, obj.data)
         except pygit2.GitError as err:
             LOG.error(err)
             continue

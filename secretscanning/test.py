@@ -603,7 +603,7 @@ def scan_git_with_patterns(db: hyperscan.Database,
         files_read += 1
 
         scan(db,
-             target_file,
+                f"{branch_name + ':' if branch_name is not None else ''}{str(commit_id) + ':' if commit_id.raw is not None else ''}{target_file}",
              content,
              patterns,
              verbose=verbose,
