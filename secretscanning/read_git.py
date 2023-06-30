@@ -82,16 +82,19 @@ def scan_repo(repo_name: str, callback: Callable) -> None:
                             target_file = patch.delta.new_file.path
                             LOG.debug("File: %s", target_file)
                             content = False
+                            line_data = b''
                             for line in patch.data.split(b"\n"):
                                 if line.startswith(b"@@"):
                                     content = True
                                     continue
-                                if content and line.startswith(b"+"):
-                                    line_data = line[1:]
-                                    LOG.debug("%s", line_data)
-
-                                    if callback is not None:
-                                        callback(branch_name, target_file, commit.oid, line_data)
+                                if content:
+                                    if line.startswith(b"+"):
+                                        line_data += line[1:]
+                                        LOG.debug("%s", line_data)
+                                    else:
+                                        if callback is not None:
+                                            callback(branch_name, target_file, commit.oid, line_data)
+                                        line_data = b''
                 # first commit, so no diff
                 else:
                     for obj in commit.tree:
