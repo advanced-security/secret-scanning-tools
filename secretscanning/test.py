@@ -28,6 +28,10 @@ import hyperscan
 import yaml
 import pcre
 
+# local modules
+import read_git
+
+
 LOG = logging.getLogger(__name__)
 LOCK = Lock()
 PATTERNS_FILENAME = "patterns.yml"
@@ -386,7 +390,8 @@ def test_patterns(tests_path: str,
                         content = str(pattern.test_data.get('data')).encode('utf-8')
 
                         # reset global before calling hyperscan
-                        RESULTS = {}
+                        with LOCK:
+                            RESULTS = {}
 
                         # sideffect: writes to global RESULTS
                         scan(db,
@@ -575,6 +580,47 @@ def dry_run_patterns(db: hyperscan.Database,
     return size_read, files_read
 
 
+def scan_git_with_patterns(db: hyperscan.Database,
+                           patterns: list[Pattern],
+                           path: str,
+                            verbose: bool = False,
+                            quiet: bool = False,
+                            clear_results: bool = True,
+                            size_read: int = 0,
+                            files_read: int = 0,
+                            only_match: bool = False,
+                            no_additional_matches: bool = False) -> tuple[int, int]:
+    """Scan a git repository with the given patterns."""
+    global RESULTS
+
+    if clear_results:
+        RESULTS = {}
+
+    def callback(branch_name: str, target_file: str, commit_id: str, content: bytes) -> None:
+        nonlocal size_read, files_read
+
+        size_read += len(content)
+        files_read += 1
+
+        scan(db,
+                f"{branch_name + ':' if branch_name is not None else ''}{str(commit_id) + ':' if commit_id.raw is not None else ''}{target_file}",
+             content,
+             patterns,
+             verbose=verbose,
+             quiet=quiet,
+             write_to_results=(not clear_results) or (not quiet),
+             dry_run=True,
+             only_match=only_match,
+             no_additional_matches=no_additional_matches)
+
+    read_git.scan_repo(path, callback)
+
+    if not quiet:
+        print_summary(size_read, files_read)
+
+    return size_read, files_read
+
+
 def print_summary(size_read: int, files_read: int) -> None:
     """Print summary of results."""
     global RESULTS
@@ -721,16 +767,22 @@ def repo_test_patterns(db: hyperscan.Database,
 
             for repo_name in repo_list:
                 try:
-                    repo_tuple = repo_name.split('/')
-                    repo_path = clone_path / repo_tuple[0] / repo_tuple[1]
-                    Repo.clone_from(f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}", repo_path)
+                    if ':' in repo_name:
+                        repo_url = repo_name
+                        repo_path_parts = repo_url.split('/')
+                        repo_path = clone_path / repo_path_parts[-2] / repo_path_parts[-1]
+                    else:
+                        repo_tuple = repo_name.split('/')
+                        repo_path = clone_path / repo_tuple[0] / repo_tuple[1]
+                        repo_url = f"https://github.com/{repo_tuple[0]}/{repo_tuple[1]}"
+                    Repo.clone_from(repo_url, repo_path)
                 except GitCommandError as err:
                     LOG.debug("Failed to clone repo '%s', does it exist? Was it already cloned? Error: %s", repo_name,
                               err)
 
                 LOG.info("Scanning repo: %s", repo_name)
                 # now scan the repo
-                size_read_run, files_read_run = dry_run_patterns(db,
+                size_read_run, files_read_run = scan_git_with_patterns(db,
                                                                  patterns,
                                                                  str(repo_path),
                                                                  verbose,
