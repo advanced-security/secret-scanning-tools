@@ -2,7 +2,6 @@ import hashlib
 import logging
 import subprocess
 from typing import List
-from ghastoolkit.octokit.github import os
 
 from secretscanning.patterns import SecretScanningAlert
 
