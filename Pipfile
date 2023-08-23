@@ -5,18 +5,20 @@ name = "pypi"
 
 [packages]
 pyyaml = "*"
-requests = "*"
-ratelimit = "*"
 jinja2 = "*"
+ghastoolkit = "*"
 
 [dev-packages]
 black = "*"
 
-[requires]
-python_version = "3.9"
-
 [scripts]
 main = "python -m secretscanning"
+# workflows
 validate = "python -m secretscanning --validate"
 snapshot = "python -m secretscanning --snapshot"
 markdown = "python -m secretscanning --markdown"
+
+# formatting
+fmt = "black ./secretscanning"
+lint = "black --check ./secretscanning"
+
