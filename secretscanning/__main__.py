@@ -80,8 +80,6 @@ if __name__ == "__main__":
     # Sort by name
     configs = collections.OrderedDict(sorted(configs.items()))
 
-    secretscanning = SecretScanning()
-
     errors = []
 
     if len(configs) == 0:
