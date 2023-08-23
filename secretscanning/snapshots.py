@@ -1,8 +1,9 @@
 import hashlib
+import logging
 import subprocess
-from typing import List, Dict, Optional
+from typing import List
 
-from secretscanning.patterns import *
+from secretscanning.patterns import SecretScanningAlert
 
 
 def createSnapshot(path: str, results: List[SecretScanningAlert]):
@@ -22,19 +23,25 @@ def createSnapshot(path: str, results: List[SecretScanningAlert]):
     with open(path, "w") as f:
         f.write(f"{','.join(header)}\n")
         for result in results:
-            # TODO: This might need to be removed
-            if result.path.startswith(".venv"):
-                continue
-            secret = hashlib.sha256(result.secret.encode("utf-8")).hexdigest()
-            content = ""
-            for head in header:
-                if head == "secret":
-                    content += f'"{secret}"'
-                else:
-                    content += f'"{getattr(result, head) or ""}"'
-                content += ","
+            #
+            for location in result.locations:
+                # skip non-commit locations
+                if location.get("type") != "commit":
+                    continue
+                details = location.get("details", {})
+                if details.get("path", "").startswith(".venv"):
+                    continue
 
-            f.write(f"{content}\n")
+                secret = hashlib.sha256(result.secret.encode("utf-8")).hexdigest()
+                content = f'"{result.secret_type}","{result.secret_type_display_name}","{secret}",'
+                # location info
+                content += f'"{details.get("path")}",'
+                content += f'"{details.get("start_line")}","{details.get("end_line")}",'
+                content += (
+                    f'"{details.get("start_column")}","{details.get("end_column")}",'
+                )
+
+                f.write(f"{content}\n")
 
 
 def compareSnapshots(default: str, current: str) -> List[str]:
@@ -52,8 +59,7 @@ def compareSnapshots(default: str, current: str) -> List[str]:
         current,
     ]
     logging.debug(f"Running command: {command}")
-    with open(os.devnull, "w") as devnull:
-        result = subprocess.run(command, capture_output=True)
+    result = subprocess.run(command, capture_output=True)
     logging.debug(f"Command result: {result}")
     if result.returncode != 0:
         return result.stdout.decode("utf-8").split("\n")[4:]

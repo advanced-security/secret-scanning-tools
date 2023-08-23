@@ -6,13 +6,14 @@ import logging
 import argparse
 
 import collections
-from typing import List, Dict, Optional
+from typing import Dict
+
+from ghastoolkit import GitHub, SecretScanning
 
 from secretscanning import __here__
-from secretscanning.patterns import *
-from secretscanning.engine import *
-from secretscanning.snapshots import *
-from secretscanning.markdown import *
+from secretscanning.markdown import createMarkdown
+from secretscanning.patterns import PatternsConfig, loadPatternFiles
+from secretscanning.snapshots import compareSnapshots, createSnapshot
 
 __TEMPLATE__ = os.path.join(__here__, "templates")
 
@@ -23,13 +24,17 @@ parser.add_argument("--cwd", default="./", help="Current Working Directory")
 
 parser_modes = parser.add_argument_group("GitHub")
 parser.add_argument(
-    "--github-repository", default=os.environ.get("GITHUB_REPOSITORY"), help="GitHub Repository"
+    "--github-repository",
+    default=os.environ.get("GITHUB_REPOSITORY"),
+    help="GitHub Repository",
 )
 parser.add_argument(
     "--github-token", default=os.environ.get("GITHUB_TOKEN"), help="GitHub token to use"
 )
 parser.add_argument(
-    "--no-github", action="store_true", help="Do not connect to GitHub, do not require a repository or token"
+    "--no-github",
+    action="store_true",
+    help="Do not connect to GitHub, do not require a repository or token",
 )
 
 parser_modes = parser.add_argument_group("modes")
@@ -63,11 +68,13 @@ if __name__ == "__main__":
     if os.path.isfile(path):
         path = os.path.dirname(path)
 
-    if not arguments.no_github and (arguments.github_repository is None or "/" not in arguments.github_repository):
-        logging.error("GitHub repository should be set with --github-repository, in the <org>/<repo> format")
+    if not arguments.no_github and (
+        arguments.github_repository is None or "/" not in arguments.github_repository
+    ):
+        logging.error(
+            "GitHub repository should be set with --github-repository, in the <org>/<repo> format"
+        )
         sys.exit(0)
-
-    owner, repo = arguments.github_repository.split("/")
 
     configs: Dict[str, PatternsConfig] = loadPatternFiles(path)
     # Sort by name
@@ -79,6 +86,20 @@ if __name__ == "__main__":
         logging.warning("No patterns found")
         sys.exit(0)
 
+    GitHub.init(arguments.github_repository, token=arguments.github_token)
+
+    secret_scanning = SecretScanning()
+
+    try:
+        # TODO: add caching
+        all_secrets = secret_scanning.getAlerts(state="open")
+    except Exception as err:
+        logging.error(f"Error occurred while fetching secrets: {err}")
+        logging.error(f"Please check your token has the right access and try again")
+        sys.exit(1)
+
+    logging.info(f"Found '{len(all_secrets)}' total secrets")
+
     for file_path, pattern_config in configs.items():
         pattern_path = os.path.dirname(pattern_config.path)
 
@@ -88,7 +109,7 @@ if __name__ == "__main__":
                 os.path.join(pattern_path, "README.md"),
                 templates=arguments.templates,
                 template=arguments.templates_patterns,
-                config=pattern_config
+                config=pattern_config,
             )
             continue
 
@@ -102,16 +123,18 @@ if __name__ == "__main__":
 
                 snapshot_path = f"{snapshot_dir}/{pattern.type}.csv"
 
-                results = getSecretScanningResults(
-                    owner,
-                    repo,
-                    arguments.github_token,
-                    pattern.type,
-                )
+                # list of secrets for a specific pattern
+                results = [
+                    secret
+                    for secret in all_secrets
+                    if secret.secret_type == pattern.type
+                ]
                 logging.info(f"Found secrets :: {len(results)}")
 
                 if arguments.snapshot:
-                    logging.info(f"Creating snapshot for {pattern.name} in {pattern_path}")
+                    logging.info(
+                        f"Creating snapshot for {pattern.name} in {pattern_path}"
+                    )
                     createSnapshot(snapshot_path, results)
                 else:
                     logging.debug(f"Creating current snapshot for {pattern.name}")
@@ -131,8 +154,8 @@ if __name__ == "__main__":
     if arguments.markdown:
         createMarkdown(
             os.path.join(arguments.cwd, "README.md"),
-                templates=arguments.templates,
-                template=arguments.templates_main,
+            templates=arguments.templates,
+            template=arguments.templates_main,
             configs=configs,
         )
 

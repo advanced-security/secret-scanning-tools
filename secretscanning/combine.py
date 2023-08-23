@@ -22,7 +22,9 @@ LOG.setLevel(logging.INFO)
 def add_args(parser: argparse.ArgumentParser) -> None:
     """Add CLI args."""
     parser.add_argument("--debug", "-d", action="store_true", help="Debug output")
-    parser.add_argument("input_dir", help="Directory with custom pattern config files in YAML format")
+    parser.add_argument(
+        "input_dir", help="Directory with custom pattern config files in YAML format"
+    )
 
 
 def main() -> None:
@@ -48,13 +50,14 @@ def main() -> None:
                     # read in YAML
                     data = yaml.safe_load(f)
 
-                    if 'patterns' in data:
-                        patterns.extend(data['patterns'])
+                    if "patterns" in data:
+                        patterns.extend(data["patterns"])
 
-    print(yaml.dump({'name': 'Collection of custom patterns', 'patterns': patterns}))
+    print(yaml.dump({"name": "Collection of custom patterns", "patterns": patterns}))
+
+
 #    print(json.dumps({'name': 'Collection of custom patterns', 'patterns': patterns}))
 
 
 if __name__ == "__main__":
     main()
-
