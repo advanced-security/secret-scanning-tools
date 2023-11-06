@@ -1,4 +1,4 @@
 python-pcre==0.7
 hyperscan==0.6.0
 pygit2==1.13.1
-GitPython==3.1.37
+GitPython==3.1.40
