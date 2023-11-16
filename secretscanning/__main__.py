@@ -110,7 +110,7 @@ if __name__ == "__main__":
                 path,
                 os.path.join(pattern_path, "README.md"),
                 templates=arguments.templates,
-                template=arguments.templates_patterns,
+                template_name=arguments.templates_patterns,
                 config=pattern_config,
             )
             continue
@@ -158,7 +158,7 @@ if __name__ == "__main__":
             path,
             "README.md",
             templates=arguments.templates,
-            template=arguments.templates_main,
+            template_name=arguments.templates_main,
             configs=configs,
         )
 
