@@ -1,6 +1,8 @@
 <!-- WARNING: This README is generated automatically
 -->
 
+<!-- markdownlint-disable no-inline-html -->
+
 # {{ config.name }}
 
 {%- for pattern in config.patterns %}
