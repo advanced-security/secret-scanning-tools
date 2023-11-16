@@ -20,7 +20,7 @@ __TEMPLATE__ = os.path.join(__here__, "templates")
 parser = argparse.ArgumentParser(description="Validate a directory of files.")
 parser.add_argument("--debug", action="store_true", help="Print debug messages")
 parser.add_argument("-p", "--path", default="./", help="Directory to scan")
-parser.add_argument("--cwd", default="./", help="Current Working Directory")
+parser.add_argument("--cwd", default=os.getcwd(), help="Set Current Working Directory")
 
 parser_modes = parser.add_argument_group("GitHub")
 parser.add_argument(
@@ -101,11 +101,13 @@ if __name__ == "__main__":
     logging.info(f"Found '{len(all_secrets)}' total secrets")
 
     for file_path, pattern_config in configs.items():
-        pattern_path = os.path.dirname(pattern_config.path)
+        if pattern_config.path is not None:
+            pattern_path = os.path.dirname(pattern_config.path)
 
         # Markdown mode
         if arguments.markdown:
             createMarkdown(
+                path,
                 os.path.join(pattern_path, "README.md"),
                 templates=arguments.templates,
                 template=arguments.templates_patterns,
