@@ -44,7 +44,9 @@ A sample custom patterns config file compatible with this tool suite is provided
     token: ${{ steps.get_workflow_token.outputs.token }}
 ```
 
-## Updating README.md files locally
+## Using locally with pipenv
+
+Install the requirements using `pipenv install`, then run `pipenv run <command>` to run the commands: `markdown`, `validate`, `snapshot`.
 
 See [this sample script](./examples/update_custom_patterns_readme.sh) for how to update the `README.md` files for your custom patterns.
 
