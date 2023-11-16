@@ -22,3 +22,10 @@ patterns:
       data: SECRET_KEY=1fsjdgvbdsjfksdgfjslfhwuefldhsfksdfhj
       start_offset: 11
       end_offset: -1
+    expected:
+      - name: django_key.txt
+        start_offset: 11
+        end_offset: 47
+      - name: django_key.txt
+        start_offset: 49
+        end_offset: 96
