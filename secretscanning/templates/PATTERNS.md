@@ -25,26 +25,22 @@ _version: {{ pattern.regex.version }}_
 
 <details>
 <summary>Pattern Format</summary>
-<p>
 
 ```regex
 {{ pattern.regex.pattern }}
 ```
 
-</p>
 </details>
 
 {% if pattern.regex.start -%}
 
 <details>
 <summary>Start Pattern</summary>
-<p>
 
 ```regex
 {{ pattern.regex.start }}
 ```
 
-</p>
 </details>
 {%- endif %}
 
@@ -52,13 +48,11 @@ _version: {{ pattern.regex.version }}_
 
 <details>
 <summary>End Pattern</summary>
-<p>
 
 ```regex
 {{ pattern.regex.end }}
 ```
 
-</p>
 </details>
 {%- endif %}
 
@@ -66,18 +60,27 @@ _version: {{ pattern.regex.version }}_
 
 <details>
 <summary>Additional Matches</summary>
-<p>
+
 Add these additional matches to the [Secret Scanning Custom Pattern](https://docs.github.com/en/enterprise-cloud@latest/code-security/secret-scanning/defining-custom-patterns-for-secret-scanning#example-of-a-custom-pattern-specified-using-additional-requirements).
 
 {% for match in pattern.regex.additional_match %}
 
-- Match: ```{{ match }}```
+- Match:
+
+  ```regex
+  {{ match }}
+  ```
+
   {%- endfor %}
   {%- for match in pattern.regex.additional_not_match %}
-- Not Match: ```{{ match }}```
+- Not Match:
+
+  ```regex
+  {{ match }}
+  ```
+
   {%- endfor %}
 
-</p>
 </details>
 {%- endif %}
 {%- endfor %}
