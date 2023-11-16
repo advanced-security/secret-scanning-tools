@@ -44,6 +44,10 @@ A sample custom patterns config file compatible with this tool suite is provided
     token: ${{ steps.get_workflow_token.outputs.token }}
 ```
 
+## Updating README.md files locally
+
+See [this sample script](./examples/update_custom_patterns_readme.sh) for how to update the `README.md` files for your custom patterns.
+
 ## Offline testing of Secret Scanning custom patterns
 
 We have a test Python script, `secretscanning/test.py` that uses Intel's `hyperscan` to test custom GitHub Advanced Security Secret Scanning patterns.
