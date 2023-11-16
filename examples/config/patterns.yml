@@ -6,25 +6,36 @@ patterns:
     type: django_secret_key
     regex:
       version: 0.1
+      # required
       pattern: |
         [^\s"'(${{)][^\r\n'"]*
+      # optional, will default to the default used in secret scanning
       start: |
         (?:\A|[^0-9A-Za-z])SECRET_KEY\s*=\s*["']?
+      # optional, will default to the default used in secret scanning
       end: |
         \z|[\r\n'"]
+      # optional, additional_match is also an option
       additional_not_match:
         - ^TEST$
+    # optional
     comments:
       - |
         Django secret key is used to provide cryptographic signing, and should be kept secret.
         See: https://docs.djangoproject.com/en/1.11/ref/settings/#secret-key
+    # optional
     test:
       data: SECRET_KEY=1fsjdgvbdsjfksdgfjslfhwuefldhsfksdfhj
+      # optional, defaults to 0
       start_offset: 11
+      # optional, defaults to -1 (the end of the string)
       end_offset: -1
+    # optional
     expected:
       - name: django_key.txt
+        # optional, defaults to 0
         start_offset: 11
+        # optional, defaults to -1 (the end of the file)
         end_offset: 47
       - name: django_key.txt
         start_offset: 49
