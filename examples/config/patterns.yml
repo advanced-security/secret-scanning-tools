@@ -12,4 +12,7 @@ patterns:
         (?:\A|[^0-9A-Za-z])SECRET_KEY\s*=\s*["']?
       end: |
         \z|[\r\n'"]
-
+    test:
+      data: SECRET_KEY=1fsjdgvbdsjfksdgfjslfhwuefldhsfksdfhj
+      start_offset: 11
+      end_offset: -1
