@@ -155,7 +155,8 @@ if __name__ == "__main__":
 
     if arguments.markdown:
         createMarkdown(
-            os.path.join(arguments.cwd, "README.md"),
+            path,
+            "README.md",
             templates=arguments.templates,
             template=arguments.templates_main,
             configs=configs,
