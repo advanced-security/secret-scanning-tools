@@ -2,13 +2,13 @@
 
 > ℹ️ This is an _unofficial_ tool created by Field Security Services, and is not officially supported by GitHub.
 
-This is a testing Suite for GitHub Secret Scanning Custom Patterns.
+This is a testing suite for GitHub Secret Scanning Custom Patterns.
 
 It can be used in combination with GitHub Actions to test custom patterns before they are deployed.
 
 An example repository that uses this Action is [advanced-security/secret-scanning-custom-patterns](https://github.com/advanced-security/secret-scanning-custom-patterns).
 
-A sample config file is provided in [`examples/config/patterns.yml`](examples/config/patterns.yml).
+A sample custom patterns config file compatible with this tool suite is provided in [`examples/config/patterns.yml`](examples/config/patterns.yml).
 
 ## Usage in Actions
 
