@@ -71,10 +71,10 @@ Add these additional matches to the [Secret Scanning Custom Pattern](https://doc
 
 {% for match in pattern.regex.additional_match %}
 
-- Match: `{{ match }}`
+- Match: ```{{ match }}```
   {%- endfor %}
   {%- for match in pattern.regex.additional_not_match %}
-- Not Match: `{{ match }}`
+- Not Match: ```{{ match }}```
   {%- endfor %}
 
 </p>
