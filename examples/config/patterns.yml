@@ -12,6 +12,12 @@ patterns:
         (?:\A|[^0-9A-Za-z])SECRET_KEY\s*=\s*["']?
       end: |
         \z|[\r\n'"]
+      additional_not_match:
+        - ^TEST$
+    comments:
+      - |
+        Django secret key is used to provide cryptographic signing, and should be kept secret.
+        See: https://docs.djangoproject.com/en/1.11/ref/settings/#secret-key
     test:
       data: SECRET_KEY=1fsjdgvbdsjfksdgfjslfhwuefldhsfksdfhj
       start_offset: 11
