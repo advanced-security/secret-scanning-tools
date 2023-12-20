@@ -6,13 +6,13 @@ import pygit2
 import argparse
 import logging
 
-from typing import Callable
+from typing import Callable, Optional
 
 
 LOG = logging.getLogger(__name__)
 
 
-def add_args(parser) -> None:
+def add_args(parser: argparse.ArgumentParser) -> None:
     """Add arguments to the parser."""
     parser.add_argument("--debug", "-d", action="store_true", help="Debug mode")
     parser.add_argument("directory", help="Directory that uses git (not the .git directory itself)")
@@ -28,7 +28,7 @@ def robust_decode(byte_string: bytes) -> str:
     raise ValueError("No suitable decoding for %s", byte_string)
 
 
-def scan_repo(repo_name: str, callback: Callable) -> None:
+def scan_repo(repo_name: str, callback: Callable[[Optional[str], Optional[str], str, bytes], None]) -> None:
     """Scan a git repository for commits and blobs, and call the callback for each one."""
     try:
         repo = pygit2.Repository(repo_name)
@@ -127,9 +127,9 @@ def scan_repo(repo_name: str, callback: Callable) -> None:
             callback(None, blob.name, blob.oid, blob.read_raw())
 
 
-def print_out_data(branch_name: str, target_file: str, commit_id: str, line_data: bytes) -> None:
+def print_out_data(branch_name: Optional[str], target_file: Optional[str], commit_id: str, line_data: bytes) -> None:
     """Print out the data."""
-    print(f"{branch_name if branch_name is not None else 'orphan'}: {target_file if target_file else 'N/A'}, {commit_id}, {line_data}")
+    print(f"{branch_name if branch_name is not None else 'orphan'}: {target_file if target_file else 'N/A'}, {commit_id}, {line_data}")  # type: ignore
 
 
 def main() -> None:
