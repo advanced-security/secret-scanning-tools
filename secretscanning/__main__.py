@@ -7,6 +7,7 @@ import argparse
 
 import collections
 from typing import Dict
+from pathlib import Path
 
 from ghastoolkit import GitHub, SecretScanning
 
@@ -18,7 +19,7 @@ from secretscanning.snapshots import compareSnapshots, createSnapshot
 __TEMPLATE__ = os.path.join(__here__, "templates")
 
 parser = argparse.ArgumentParser(description="Validate a directory of files.")
-parser.add_argument("--debug", action="store_true", help="Print debug messages")
+parser.add_argument("--debug", "-d", action="store_true", help="Print debug messages")
 parser.add_argument("-p", "--path", default="./", help="Directory to scan")
 parser.add_argument("--cwd", default=os.getcwd(), help="Set Current Working Directory")
 
@@ -63,10 +64,9 @@ if __name__ == "__main__":
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    path = arguments.path
+    pathlib_path = Path(arguments.path)
     # If a file is provided, point to the directory
-    if os.path.isfile(path):
-        path = os.path.dirname(path)
+    path = (pathlib_path.parent if pathlib_path.is_file() else pathlib_path).resolve().absolute().as_posix()
 
     if not arguments.no_github and (
         arguments.github_repository is None or "/" not in arguments.github_repository
@@ -102,7 +102,9 @@ if __name__ == "__main__":
 
     for file_path, pattern_config in configs.items():
         if pattern_config.path is not None:
-            pattern_path = os.path.dirname(pattern_config.path)
+            logging.debug(f"Using path from config: {pattern_config.path}")
+            pattern_path = (Path(path) / (pattern_config.path)).parent.resolve().absolute().as_posix()
+            logging.debug(f"Pattern path: {pattern_path}")
 
         # Markdown mode
         if arguments.markdown:
