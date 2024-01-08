@@ -100,7 +100,7 @@ class PatternsConfig:
 
     name: str
 
-    display: bool = True
+    display: bool = field(default=True)
 
     patterns: List[Pattern] = field(default_factory=list)
 
@@ -139,17 +139,19 @@ def loadPatternFiles(path: str) -> Dict[str, PatternsConfig]:
     for root, dirs, files in os.walk(path):
         for file in files:
             if file == "patterns.yml":
-                path = os.path.join(root, file)
-                logging.debug(f"Found patterns file: {path}")
+                pattern_path = os.path.join(root, file)
+                logging.debug(f"Found patterns file: {pattern_path}")
 
-                with open(path) as f:
+                with open(pattern_path) as f:
                     data = yaml.safe_load(f)
 
-                    config = PatternsConfig(path=path, **data)
+                    relative_path = os.path.join(".", os.path.relpath(pattern_path, path))
+
+                    config = PatternsConfig(path=relative_path, **data)
 
                     logging.debug(
                         f"Loaded :: PatternsConfig('{config.name}' patterns='{len(config.patterns)})'"
                     )
 
-                    patterns[path] = config
+                    patterns[relative_path] = config
     return patterns

@@ -7,16 +7,20 @@ from secretscanning import __here__
 from secretscanning.patterns import *
 
 
-def createMarkdown(path: str, templates: str = __here__, template: str = "template.md", **data) -> str:
+def createMarkdown(root: str, path: str, templates: str = __here__, template_name: str = None, **data) -> str:
+    if template_name is None:
+        logging.error("No template provided")
+        sys.exit(1)
+
     logging.info(f"Creating markdown :: {path}")
 
     logging.info(f"Template :: {templates}")
 
     env = Environment(loader=FileSystemLoader(templates))
-    template = env.get_template(template)
+    template = env.get_template(template_name)
 
     output_from_parsed_template = template.render(data)
 
-    with open(path, "w") as f:
+    with open(os.path.join(root, path), "w") as f:
         f.write(output_from_parsed_template)
     return output_from_parsed_template
