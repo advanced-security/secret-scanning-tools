@@ -12,6 +12,8 @@ Please raise non-security bugs and suggestions in the Issues on the GitHub-hoste
 
 Please test your changes before submitting a PR.
 
+Before making changes to `secretscanning/test.py` please run `make lint` in the `secretscanning` directory.
+
 ## Submitting changes
 
 Please fork the repository, and raise a Pull Request (PR) for review.
