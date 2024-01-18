@@ -54,16 +54,18 @@ runs:
         echo "::debug::INPUTS_TEMPLATE_MAIN: ${INPUTS_TEMPLATE_MAIN}"
         echo "::debug::INPUTS_TEMPLATE_PATTERNS: ${INPUTS_TEMPLATE_PATTERNS}"
         echo "::debug::INPUTS_ARGVS: ${INPUTS_ARGVS}"
-        echo "::debug::INPUTS_ARGVS: ${GITHUB_ACTION_PATH}"
+        echo "::debug::GITHUB_ACTION_PATH: ${GITHUB_ACTION_PATH}"
 
         export PYTHONPATH="${GITHUB_ACTION_PATH}"
 
         # if either template isn't set, use the default in the Action
         if [[ -z "${INPUTS_TEMPLATE_MAIN}" ]]; then
+          echo "::notice::Using default template for main README.md"
           INPUTS_TEMPLATE_MAIN="${GITHUB_ACTION_PATH}/templates/README.md"
         fi
 
         if [[ -z "${INPUTS_TEMPLATE_PATTERNS}" ]]; then
+          echo "::notice::Using default template for patterns.md"
           INPUTS_TEMPLATE_PATTERNS="${GITHUB_ACTION_PATH}/templates/patterns.md"
         fi
 
