@@ -60,7 +60,7 @@ runs:
           "--${INPUTS_MODE}" \
           --github-token "${INPUTS_TOKEN}" \
           --github-repository "${INPUTS_REPOSITORY}" \
-          ${INPUTS_TEMPLATES_PATH:+--templates "${INPUTS_TEMPLATES_PATH}" \
+          ${INPUTS_TEMPLATES_PATH:+--templates "${INPUTS_TEMPLATES_PATH}"} \
           ${INPUTS_TEMPLATE_MAIN:+--templates-main "${INPUTS_TEMPLATE_MAIN}"} \
           ${INPUTS_TEMPLATE_PATTERNS:+--templates-patterns "${INPUTS_TEMPLATE_PATTERNS}"}
           ${{ inputs.argvs }}
