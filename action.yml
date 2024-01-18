@@ -16,9 +16,11 @@ inputs:
 
   template-main:
     description: Main README Template
+    default: ${{ github.action_path }}/templates/README.md
   
   template-patterns:
     description: Main Pattern Template
+    default: ${{ github.action_path }}/templates/PATTERNS.md
 
   argvs:
     description: 'Additional Arguments'
@@ -39,12 +41,18 @@ runs:
         popd
         echo "::endgroup::"
     - shell: bash
+      env:
+        INPUTS_MODE: ${{ inputs.mode }}
+        INPUTS_TOKEN: ${{ inputs.token }}
+        INPUTS_REPOSITORY: ${{ inputs.repository }}
+        INPUTS_TEMPLATE_MAIN: ${{ inputs.template-main }}
+        INPUTS_TEMPLATE_PATTERNS: ${{ inputs.template-patterns }}
       run: |
         PYTHONPATH=${{ github.action_path }} && export PYTHONPATH=${{ github.action_path }}
         python3 -m secretscanning \
-          --${{ inputs.mode }} \
-          --github-token "${{ inputs.token }}" \
-          --github-repository "${{ inputs.repository }}" \
-          --templates-main "${{ inputs.template-main }}" \
-          --templates-patterns "${{ inputs.template-patterns }}" \
+          "--${INPUTS_MODE}" \
+          --github-token "${INPUTS_TOKEN}" \
+          --github-repository "${INPUTS_REPOSITORY}" \
+          --templates-main "${INPUTS_TEMPLATE_MAIN}" \
+          --templates-patterns "${INPUTS_TEMPLATE_PATTERNS}" \
           ${{ inputs.argvs }}
