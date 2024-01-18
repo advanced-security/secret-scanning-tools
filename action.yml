@@ -69,6 +69,12 @@ runs:
           INPUTS_TEMPLATE_PATTERNS="${GITHUB_ACTION_PATH}/secretscanning/templates/patterns.md"
         fi
 
+        find "${GITHUB_ACTION_PATH}" -name "*.md"
+        ls "${GITHUB_ACTION_PATH}/secretscanning/"
+        ls "${GITHUB_ACTION_PATH}/secretscanning/templates/"
+        ls "${INPUTS_TEMPLATE_MAIN}"
+        ls "${INPUTS_TEMPLATE_PATTERNS}"
+
         python3 -m secretscanning \
           "--${INPUTS_MODE}" \
           --github-token "${INPUTS_TOKEN}" \
