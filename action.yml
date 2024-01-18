@@ -61,12 +61,12 @@ runs:
         # if either template isn't set, use the default in the Action
         if [[ -z "${INPUTS_TEMPLATE_MAIN}" ]]; then
           echo "::notice::Using default template for main README.md"
-          INPUTS_TEMPLATE_MAIN="${GITHUB_ACTION_PATH}/templates/README.md"
+          INPUTS_TEMPLATE_MAIN="${GITHUB_ACTION_PATH}/secretscanning/templates/README.md"
         fi
 
         if [[ -z "${INPUTS_TEMPLATE_PATTERNS}" ]]; then
           echo "::notice::Using default template for patterns.md"
-          INPUTS_TEMPLATE_PATTERNS="${GITHUB_ACTION_PATH}/templates/patterns.md"
+          INPUTS_TEMPLATE_PATTERNS="${GITHUB_ACTION_PATH}/secretscanning/templates/patterns.md"
         fi
 
         python3 -m secretscanning \
