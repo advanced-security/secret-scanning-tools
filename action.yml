@@ -16,11 +16,9 @@ inputs:
 
   template-main:
     description: Main README Template
-    default: ${{ github.action_path }}/templates/README.md
   
   template-patterns:
     description: Main Pattern Template
-    default: ${{ github.action_path }}/templates/PATTERNS.md
 
   argvs:
     description: 'Additional Arguments'
@@ -48,7 +46,18 @@ runs:
         INPUTS_TEMPLATE_MAIN: ${{ inputs.template-main }}
         INPUTS_TEMPLATE_PATTERNS: ${{ inputs.template-patterns }}
       run: |
-        PYTHONPATH=${{ github.action_path }} && export PYTHONPATH=${{ github.action_path }}
+        GITHUB_ACTION_PATH=${{ github.action_path:-.}}
+        export PYTHONPATH="${GITHUB_ACTION_PATH}"
+
+        # if either template isn't set, use the default in the Action
+        if [[ -z "${INPUTS_TEMPLATE_MAIN}" ]]; then
+          INPUTS_TEMPLATE_MAIN="${GITHUB_ACTION_PATH}/templates/README.md"
+        fi
+
+        if [[ -z "${INPUTS_TEMPLATE_PATTERNS}" ]]; then
+          INPUTS_TEMPLATE_PATTERNS="${GITHUB_ACTION_PATH}/templates/patterns.md"
+        fi
+
         python3 -m secretscanning \
           "--${INPUTS_MODE}" \
           --github-token "${INPUTS_TOKEN}" \
