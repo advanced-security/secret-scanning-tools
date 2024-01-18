@@ -14,71 +14,53 @@ inputs:
     description: Secret Scanning Test Suite Mode
     default: validate
 
+  templates-path:
+    description: Path to template directory
+
   template-main:
-    description: Main README Template
+    description: Main README template name
   
   template-patterns:
-    description: Main Pattern Template
+    description: PATTERNS template name
 
   argvs:
-    description: 'Additional Arguments'
+    description: Additional arguments
 
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-python@v5
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
-    - shell: bash
+    - name: Install Dependencies
+      shell: bash
       run: |
         echo "::group::Installing Dependencies"
         pushd ${{ github.action_path }}
         python3 -m pip install pipenv && python3 -m pipenv install --system
         popd
         echo "::endgroup::"
-    - shell: bash
+
+    - name: Run Secret Scanning tools
+      shell: bash
       env:
         INPUTS_MODE: ${{ inputs.mode }}
         INPUTS_TOKEN: ${{ inputs.token }}
         INPUTS_REPOSITORY: ${{ inputs.repository }}
+        INPUTS_TEMPLATES_PATH: ${{ inputs.templates-path }}
         INPUTS_TEMPLATE_MAIN: ${{ inputs.template-main }}
         INPUTS_TEMPLATE_PATTERNS: ${{ inputs.template-patterns }}
       run: |
         echo "::group::Running Secret Scanning tools: ${INPUTS_MODE}"
 
-        # debug output
-        echo "::debug::INPUTS_MODE: ${INPUTS_MODE}"
-        echo "::debug::INPUTS_REPOSITORY: ${INPUTS_REPOSITORY}"
-        echo "::debug::INPUTS_TEMPLATE_MAIN: ${INPUTS_TEMPLATE_MAIN}"
-        echo "::debug::INPUTS_TEMPLATE_PATTERNS: ${INPUTS_TEMPLATE_PATTERNS}"
-        echo "::debug::INPUTS_ARGVS: ${INPUTS_ARGVS}"
-        echo "::debug::GITHUB_ACTION_PATH: ${GITHUB_ACTION_PATH}"
-
-        export PYTHONPATH="${GITHUB_ACTION_PATH}"
-
-        # if either template isn't set, use the default in the Action
-        if [[ -z "${INPUTS_TEMPLATE_MAIN}" ]]; then
-          echo "::notice::Using default template for main README.md"
-          INPUTS_TEMPLATE_MAIN="${GITHUB_ACTION_PATH}/secretscanning/templates/README.md"
-        fi
-
-        if [[ -z "${INPUTS_TEMPLATE_PATTERNS}" ]]; then
-          echo "::notice::Using default template for PATTERNS.md"
-          INPUTS_TEMPLATE_PATTERNS="${GITHUB_ACTION_PATH}/secretscanning/templates/PATTERNS.md"
-        fi
-
-        find "${GITHUB_ACTION_PATH}" -name "*.md"
-        ls "${GITHUB_ACTION_PATH}/secretscanning/"
-        ls "${GITHUB_ACTION_PATH}/secretscanning/templates/"
-        ls "${INPUTS_TEMPLATE_MAIN}"
-        ls "${INPUTS_TEMPLATE_PATTERNS}"
-
         python3 -m secretscanning \
           "--${INPUTS_MODE}" \
           --github-token "${INPUTS_TOKEN}" \
           --github-repository "${INPUTS_REPOSITORY}" \
-          --templates-main "${INPUTS_TEMPLATE_MAIN}" \
-          --templates-patterns "${INPUTS_TEMPLATE_PATTERNS}" \
+          ${INPUTS_TEMPLATES_PATH:+--templates "${INPUTS_TEMPLATES_PATH}" \
+          ${INPUTS_TEMPLATE_MAIN:+--templates-main "${INPUTS_TEMPLATE_MAIN}"} \
+          ${INPUTS_TEMPLATE_PATTERNS:+--templates-patterns "${INPUTS_TEMPLATE_PATTERNS}"}
           ${{ inputs.argvs }}
