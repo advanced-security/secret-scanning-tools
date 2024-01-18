@@ -46,7 +46,16 @@ runs:
         INPUTS_TEMPLATE_MAIN: ${{ inputs.template-main }}
         INPUTS_TEMPLATE_PATTERNS: ${{ inputs.template-patterns }}
       run: |
-        GITHUB_ACTION_PATH=${{ github.action_path:-.}}
+        echo "::group::Running Secret Scanning tools: ${INPUTS_MODE}"
+
+        # debug output
+        echo "::debug::INPUTS_MODE: ${INPUTS_MODE}"
+        echo "::debug::INPUTS_REPOSITORY: ${INPUTS_REPOSITORY}"
+        echo "::debug::INPUTS_TEMPLATE_MAIN: ${INPUTS_TEMPLATE_MAIN}"
+        echo "::debug::INPUTS_TEMPLATE_PATTERNS: ${INPUTS_TEMPLATE_PATTERNS}"
+        echo "::debug::INPUTS_ARGVS: ${INPUTS_ARGVS}"
+        echo "::debug::INPUTS_ARGVS: ${GITHUB_ACTION_PATH}"
+
         export PYTHONPATH="${GITHUB_ACTION_PATH}"
 
         # if either template isn't set, use the default in the Action
