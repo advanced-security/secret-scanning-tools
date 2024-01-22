@@ -30,6 +30,16 @@ inputs:
 runs:
   using: "composite"
   steps:
+
+    - name: Debug output
+      shell: bash
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: |
+          echo "::group::Debug output"
+          echo "GITHUB_CONTEXT: ${GITHUB_CONTEXT}"
+          echo "::endgroup::"
+
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
