@@ -30,20 +30,17 @@ inputs:
 runs:
   using: "composite"
   steps:
-
-    - name: Debug output
-      shell: bash
+    - shell: bash
       env:
-        GITHUB_CONTEXT: ${{ toJson(github) }}
+        RUNNER: ${{ toJson(runner) }}
       run: |
-        echo "::group::Debug output"
-        echo "GITHUB_CONTEXT: ${GITHUB_CONTEXT}"
-        echo "::endgroup::"
-
+        echo "$RUNNER"
+  
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.9'
+      if: runner.tool_cache != null
 
     - name: Install Dependencies
       shell: bash
