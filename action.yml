@@ -30,17 +30,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - shell: bash
-      env:
-        RUNNER: ${{ toJson(runner) }}
-      run: |
-        echo "$RUNNER"
-  
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.9'
-      if: runner.tool_cache != null
+      if: runner.environment == 'github-hosted' || (runner.tool_cache != '' && runner.tool_cache != null)
 
     - name: Install Dependencies
       shell: bash
