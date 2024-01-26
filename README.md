@@ -44,7 +44,15 @@ A sample custom patterns config file compatible with this tool suite is provided
     token: ${{ steps.get_workflow_token.outputs.token }}
 ```
 
-### Defining expected results for online testing
+### Using in Enterprise Server or with self-hosted Actions runners
+
+The Action will set up Python on GitHub Hosted runners or on runners with a configured tool cache.
+
+If you are using a self-hosted runner, or Enterprise Server, and you have not set up the tool cache, you will need to set up Python yourself (version 3.9+)
+
+You can do that in the workflow, or by installing it permanently into your runner's image and including it in the path of the Actions runner.
+
+## Defining expected results for online testing
 
 Create a snapshot of the results of a pattern by running the action with `snapshot`.
 

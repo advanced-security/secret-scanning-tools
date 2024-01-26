@@ -14,37 +14,54 @@ inputs:
     description: Secret Scanning Test Suite Mode
     default: validate
 
+  templates-path:
+    description: Path to template directory
+
   template-main:
-    description: Main README Template
+    description: Main README template name
   
   template-patterns:
-    description: Main Pattern Template
+    description: PATTERNS template name
 
   argvs:
-    description: 'Additional Arguments'
+    description: Additional arguments
 
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-python@v5
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
+      if: runner.environment == 'github-hosted' || (runner.tool_cache != '' && runner.tool_cache != null)
 
-    - shell: bash
+    - name: Install Dependencies
+      shell: bash
       run: |
         echo "::group::Installing Dependencies"
         pushd ${{ github.action_path }}
         python3 -m pip install pipenv && python3 -m pipenv install --system
         popd
         echo "::endgroup::"
-    - shell: bash
+
+    - name: Run Secret Scanning tools
+      shell: bash
+      env:
+        INPUTS_MODE: ${{ inputs.mode }}
+        INPUTS_TOKEN: ${{ inputs.token }}
+        INPUTS_REPOSITORY: ${{ inputs.repository }}
+        INPUTS_TEMPLATES_PATH: ${{ inputs.templates-path }}
+        INPUTS_TEMPLATE_MAIN: ${{ inputs.template-main }}
+        INPUTS_TEMPLATE_PATTERNS: ${{ inputs.template-patterns }}
       run: |
-        PYTHONPATH=${{ github.action_path }} && export PYTHONPATH=${{ github.action_path }}
+        echo "::group::Running Secret Scanning tools: ${INPUTS_MODE}"
+
         python3 -m secretscanning \
-          --${{ inputs.mode }} \
-          --github-token "${{ inputs.token }}" \
-          --github-repository "${{ inputs.repository }}" \
-          --templates-main "${{ inputs.template-main }}" \
-          --templates-patterns "${{ inputs.template-patterns }}" \
+          "--${INPUTS_MODE}" \
+          --github-token "${INPUTS_TOKEN}" \
+          --github-repository "${INPUTS_REPOSITORY}" \
+          ${INPUTS_TEMPLATES_PATH:+--templates "${INPUTS_TEMPLATES_PATH}"} \
+          ${INPUTS_TEMPLATE_MAIN:+--templates-main "${INPUTS_TEMPLATE_MAIN}"} \
+          ${INPUTS_TEMPLATE_PATTERNS:+--templates-patterns "${INPUTS_TEMPLATE_PATTERNS}"}
           ${{ inputs.argvs }}
