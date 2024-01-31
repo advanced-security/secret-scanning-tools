@@ -31,6 +31,9 @@ def createSnapshot(path: str, results: List[SecretScanningAlert]):
                 details = location.get("details", {})
                 if details.get("path", "").startswith(".venv"):
                     continue
+                # skip pattern.yml files
+                if details.get("path", "").endswith("patterns.yml"):
+                    continue
 
                 secret = hashlib.sha256(result.secret.encode("utf-8")).hexdigest()
                 content = f'"{result.secret_type}","{result.secret_type_display_name}","{secret}",'
