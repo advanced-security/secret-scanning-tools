@@ -57,6 +57,7 @@ runs:
       run: |
         echo "::group::Running Secret Scanning tools: ${INPUTS_MODE}"
 
+        cd ${{ github.action_path }}
         python3 -m secretscanning \
           "--${INPUTS_MODE}" \
           --github-token "${INPUTS_TOKEN}" \
