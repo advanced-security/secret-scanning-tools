@@ -23,6 +23,10 @@ inputs:
   template-patterns:
     description: PATTERNS template name
 
+  path:
+    description: Path to scan
+    default: ${{ github.workspace }}
+
   argvs:
     description: Additional arguments
 
@@ -49,6 +53,7 @@ runs:
       shell: bash
       env:
         INPUTS_MODE: ${{ inputs.mode }}
+        INPUTS_PATH: ${{ inputs.path }}
         INPUTS_TOKEN: ${{ inputs.token }}
         INPUTS_REPOSITORY: ${{ inputs.repository }}
         INPUTS_TEMPLATES_PATH: ${{ inputs.templates-path }}
@@ -57,8 +62,10 @@ runs:
       run: |
         echo "::group::Running Secret Scanning tools: ${INPUTS_MODE}"
 
+        cd ${{ github.action_path }}
         python3 -m secretscanning \
           "--${INPUTS_MODE}" \
+          --path "${INPUTS_PATH}" \
           --github-token "${INPUTS_TOKEN}" \
           --github-repository "${INPUTS_REPOSITORY}" \
           ${INPUTS_TEMPLATES_PATH:+--templates "${INPUTS_TEMPLATES_PATH}"} \
