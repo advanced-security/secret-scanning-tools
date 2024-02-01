@@ -1,5 +1,8 @@
 name: 'secret-scanning-custom-action'
 description: 'Testing Suite for GitHub Secret Scanning Custom Patterns'
+branding:
+  icon: key
+  color: blue
 
 inputs:
   repository:
