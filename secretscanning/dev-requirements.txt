@@ -2,4 +2,4 @@ flake8==7.0.0
 bandit==1.7.7
 mypy==1.8.0
 yapf==0.40.2
-ruff==0.1.14
+ruff==0.2.0
