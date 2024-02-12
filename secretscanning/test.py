@@ -547,6 +547,9 @@ def test_patterns(
                         pattern_results = RESULTS.get(pattern.name, [])
 
                         if len(pattern_results) > 1:
+                            LOG.error("❌ matched more than once on test data on '%s' in '%s'", pattern.type, rel_dirpath)
+                            for res in pattern_results:
+                                LOG.error("%s%s%s", res['groups']['start'], Fore.RED + res['groups']['pattern'] + Style.RESET_ALL, res['groups']['end'])
                             ok_test = False
                         else:
                             # did we match what we expected?
@@ -592,9 +595,11 @@ def test_patterns(
                                             result_data.get("start_offset", -1),
                                             result_data.get("end_offset", -1),
                                         )
+                            LOG.debug("❌ Matched unexpected test data for: %s", pattern.type)
                             ok_test = False
 
                         if not ok_test:
+                            LOG.debug("❌ Test OK flag set to False for %s:", pattern.type)
                             ret = False
 
                     else:
@@ -731,12 +736,14 @@ def test_patterns(
                                                 err,
                                             )
 
+                            LOG.debug("❌ Matched an unexpected result for %s", pattern.type)
                             ok = False
 
                         if ok and not quiet:
                             LOG.info("✅ '%s' in '%s'", pattern.type, rel_dirpath)
 
                         if not ok:
+                            LOG.debug("❌ ok flag set to False for %s", pattern.type)
                             ret = False
 
                     else:
@@ -1237,6 +1244,7 @@ def main() -> None:
         )
         and not args.continue_on_fail
     ):
+        LOG.debug("Testing patterns returned False")
         exit(1)
 
     db, patterns = build_hyperscan_patterns(
