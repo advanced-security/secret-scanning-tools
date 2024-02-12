@@ -38,5 +38,5 @@ patterns:
         # optional, defaults to -1 (the end of the file)
         end_offset: 48
       - name: django_key.txt
-        start_offset: 49
+        start_offset: 60
         end_offset: 97
