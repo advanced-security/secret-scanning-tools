@@ -3,7 +3,7 @@ name: Configuration Secrets
 
 patterns:
   - name: Django Secret Key
-    type: django_secret_key
+    type: test_django_secret_key_test
     regex:
       version: 0.1
       # required
