@@ -91,6 +91,7 @@ class Pattern:
             if self.test_data["end_offset"] == -1:
                 self.test_data["end_offset"] = len(str(self.test_data["data"]))
             self.test_data["name"] = None
+            self.test_data["data"] = self.test_data["data"].strip()
 
     def regex_string(self) -> bytes:
         """Concatenate and UTF-8 encode."""
@@ -551,17 +552,23 @@ def test_patterns(
                             for res in pattern_results:
                                 LOG.error("%s%s%s", res['groups']['start'], Fore.RED + res['groups']['pattern'] + Style.RESET_ALL, res['groups']['end'])
                             ok_test = False
+                        elif len(pattern_results) == 0:
+                            LOG.error("❌ no matches on test data on '%s' in '%s'", pattern.type, rel_dirpath)
+                            ok_test = False
                         else:
-                            # did we match what we expected?
-                            if len(pattern_results) == 0 or not path_offsets_match(
-                                pattern.test_data, pattern_results[0].get("file", {})
-                            ):
+                            result = pattern_results[0].get("file", {})
+                            if not path_offsets_match(pattern.test_data, result):
                                 LOG.error(
-                                    "❌ did not match test data for '%s': '%s':%d-%d ",
+                                    "❌ did not match test data for '%s': '%s':%d-%d",
                                     pattern.type,
                                     pattern.test_data["data"],
                                     pattern.test_data["start_offset"],
                                     pattern.test_data["end_offset"],
+                                )
+                                LOG.error(
+                                    "❌ matched: %d-%d",
+                                    result["start_offset"],
+                                    result["end_offset"],
                                 )
                                 ok_test = False
 
@@ -623,7 +630,11 @@ def test_patterns(
             for filename in [f for f in filenames if f not in FILENAME_EXCLUDES]:
                 path = (Path(dirpath) / filename).relative_to(tests_path)
                 with (Path(tests_path) / path).resolve().open("rb") as f:
+                    LOG.debug("Scanning file %s/%s", tests_path, path)
+
                     content = f.read()
+
+                    LOG.debug(content)
 
                     # sideffect: writes to global RESULTS
                     scan(
@@ -645,6 +656,7 @@ def test_patterns(
                     if pattern.expected:
                         for expected in pattern.expected:
                             pattern_results = RESULTS.get(pattern.name, [])
+                            LOG.debug("Pattern results: %s", pattern_results)
                             if not any(
                                 [
                                     path_offsets_match(expected, result.get("file", {}))
