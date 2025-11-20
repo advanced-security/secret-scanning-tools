@@ -38,7 +38,7 @@ runs:
   using: "composite"
   steps:
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.9'
       if: runner.environment == 'github-hosted' || (runner.tool_cache != '' && runner.tool_cache != null)
