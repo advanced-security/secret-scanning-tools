@@ -21,9 +21,6 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
-      semver-patch-days: 7
-      semver-minor-days: 14
-      semver-major-days: 28
     groups:
       production-dependencies:
         dependency-type: "production"
