@@ -39,7 +39,7 @@ runs:
       shell: bash
       run: |
         echo "::group::Installing Dependencies"
-        pushd ${{ github.action_path }}
+        pushd "$GITHUB_ACTION_PATH"
         python3 -m pip install pipenv && pipenv install
         popd
         echo "::endgroup::"
