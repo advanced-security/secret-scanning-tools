@@ -26,9 +26,6 @@ jobs:
           application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
           application_private_key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
 
-      - name: Install Dependencies
-        run: pip install pipenv && pipenv install --dev
-
       - name: Run - self test - validate
         uses: ./
         with:
