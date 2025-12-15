@@ -8,42 +8,34 @@ inputs:
   repository:
     description: Repository owner and repo name
     default: ${{ github.repository }}
-
   token:
     description: GitHub Personal Access Token
     default: ${{ github.token }}
-
   mode:
     description: Secret Scanning Test Suite Mode
     default: validate
-
   templates-path:
     description: Path to template directory
-
   template-main:
     description: Main README template name
-  
   template-patterns:
     description: PATTERNS template name
-
   path:
     description: Path to scan
     default: ${{ github.workspace }}
-
   argvs:
     description: Additional arguments
-
 
 runs:
   using: "composite"
   steps:
     - name: Setup Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
       with:
         python-version: '3.9'
       if: runner.environment == 'github-hosted' || (runner.tool_cache != '' && runner.tool_cache != null)
 
-    - name: Install Dependencies
+    - name: Install dependencies
       shell: bash
       run: |
         echo "::group::Installing Dependencies"
@@ -66,7 +58,7 @@ runs:
         echo "::group::Running Secret Scanning tools: ${INPUTS_MODE}"
 
         cd ${{ github.action_path }}
-        python3 -m secretscanning \
+        pipenv run python3 -m secretscanning \
           "--${INPUTS_MODE}" \
           --path "${INPUTS_PATH}" \
           --github-token "${INPUTS_TOKEN}" \
