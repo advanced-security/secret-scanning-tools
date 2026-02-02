@@ -27,6 +27,7 @@ jobs:
         id: get_workflow_token
         if: |
           github.actor != 'dependabot[bot]' &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
           (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: peter-murray/workflow-application-token-action@86d05551fa394b4b813e0deee328005b45cf5237 # v4.0.1
         with:
@@ -36,6 +37,7 @@ jobs:
       - name: Install dependencies
         if: |
           github.actor != 'dependabot[bot]' &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
           (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         run: python3 -m pip install pipenv && python3 -m pipenv install
 
@@ -43,6 +45,7 @@ jobs:
       - name: Run - full example
         if: |
           github.actor != 'dependabot[bot]' &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
           (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           GITHUB_REPOSITORY: advanced-security/secret-scanning-custom-patterns
