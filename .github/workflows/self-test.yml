@@ -21,6 +21,7 @@ jobs:
 
       - name: Get Token
         id: get_workflow_token
+        if: ${{ secrets.ADVANCED_SECURITY_APP_ID != '' }}
         uses: peter-murray/workflow-application-token-action@86d05551fa394b4b813e0deee328005b45cf5237 #v3.0.0
         with:
           application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
@@ -30,11 +31,11 @@ jobs:
         uses: ./
         with:
           mode: validate
-          token: ${{ steps.get_workflow_token.outputs.token }}
+          token: ${{ steps.get_workflow_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Run - self test - markdown
         uses: ./
         with:
           mode: markdown
-          token: ${{ steps.get_workflow_token.outputs.token }}
+          token: ${{ steps.get_workflow_token.outputs.token || secrets.GITHUB_TOKEN }}
   
