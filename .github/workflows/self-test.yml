@@ -14,6 +14,10 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
 
     steps:
       - name: Checkout
@@ -21,30 +25,18 @@ jobs:
 
       - name: Get Token
         id: get_workflow_token
-        if: |
-          github.actor != 'dependabot[bot]' &&
-          github.event.pull_request.user.login != 'dependabot[bot]' &&
-          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: peter-murray/workflow-application-token-action@86d05551fa394b4b813e0deee328005b45cf5237 #v3.0.0
         with:
           application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
           application_private_key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
 
       - name: Run - self test - validate
-        if: |
-          github.actor != 'dependabot[bot]' &&
-          github.event.pull_request.user.login != 'dependabot[bot]' &&
-          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: ./
         with:
           mode: validate
           token: ${{ steps.get_workflow_token.outputs.token }}
 
       - name: Run - self test - markdown
-        if: |
-          github.actor != 'dependabot[bot]' &&
-          github.event.pull_request.user.login != 'dependabot[bot]' &&
-          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: ./
         with:
           mode: markdown
