@@ -22,7 +22,7 @@ jobs:
       - name: Get Token
         id: get_workflow_token
         if: |
-          github.actor != 'dependabot[bot]' && 
+          github.actor != 'dependabot[bot]' &&
           (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: peter-murray/workflow-application-token-action@86d05551fa394b4b813e0deee328005b45cf5237 #v3.0.0
         with:
@@ -31,7 +31,7 @@ jobs:
 
       - name: Run - self test - validate
         if: |
-          github.actor != 'dependabot[bot]' && 
+          github.actor != 'dependabot[bot]' &&
           (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: ./
         with:
@@ -40,7 +40,7 @@ jobs:
 
       - name: Run - self test - markdown
         if: |
-          github.actor != 'dependabot[bot]' && 
+          github.actor != 'dependabot[bot]' &&
           (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: ./
         with:
