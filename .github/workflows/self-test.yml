@@ -22,10 +22,10 @@ jobs:
 
       - name: Get Token
         id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@86d05551fa394b4b813e0deee328005b45cf5237 #v3.0.0
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
         with:
-          application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
-          application_private_key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
+          app-id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
+          private-key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
 
       - name: Run - self test - validate
         uses: ./

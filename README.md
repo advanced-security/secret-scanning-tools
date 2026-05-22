@@ -33,10 +33,10 @@ A sample custom patterns config file compatible with this tool suite is provided
 ```yaml
 - name: Get Token
   id: get_workflow_token
-  uses: peter-murray/workflow-application-token-action@v1
+  uses: actions/create-github-app-token@v2
   with:
-    application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
-    application_private_key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
+    app-id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
+    private-key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
 
 - name: Secret Scanning Test Suite
   uses: advanced-security/secret-scanning-tools@v1
