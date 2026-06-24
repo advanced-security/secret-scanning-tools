@@ -26,6 +26,7 @@ jobs:
 
       - name: Get token
         id: get_workflow_token
+        if: github.actor != 'dependabot[bot]'
         uses: peter-murray/workflow-application-token-action@86d05551fa394b4b813e0deee328005b45cf5237 # v4.0.1
         with:
           application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
@@ -36,6 +37,7 @@ jobs:
 
       # Run Validation
       - name: Run - full example
+        if: github.actor != 'dependabot[bot]'
         env:
           GITHUB_REPOSITORY: advanced-security/secret-scanning-custom-patterns
           GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
