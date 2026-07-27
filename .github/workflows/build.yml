@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -27,7 +27,7 @@ jobs:
       - name: Get token
         id: get_workflow_token
         if: github.actor != 'dependabot[bot]'
-        uses: peter-murray/workflow-application-token-action@86d05551fa394b4b813e0deee328005b45cf5237 # v4.0.1
+        uses: peter-murray/workflow-application-token-action@13145a6fb7bf0a37567dce5aed1447d3d3a007bc # v4.0.1
         with:
           application_id: ${{ secrets.ADVANCED_SECURITY_APP_ID }}
           application_private_key: ${{ secrets.ADVANCED_SECURITY_APP_KEY }}
