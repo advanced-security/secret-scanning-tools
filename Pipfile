@@ -7,7 +7,7 @@ name = "pypi"
 pyyaml = "*"
 jinja2 = "*"
 ghastoolkit = "*"
-gitpython = "==3.1.59"
+gitpython = "==3.1.62"
 
 [dev-packages]
 black = "*"
